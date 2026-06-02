@@ -1,0 +1,13 @@
+[package]
+name = "ghcb"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+x86_64 = { version = "0.15.4", features = ["memory_encryption", "abi_x86_interrupt"] }
+bitflags = "2.11.0"
+bitfield-struct = "0.13.0"
+
+[features]
+snp = []
+default = ["snp"]
