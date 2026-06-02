@@ -7,7 +7,9 @@ edition = "2024"
 x86_64 = { version = "0.15.4", features = ["memory_encryption", "abi_x86_interrupt"] }
 bitflags = "2.11.0"
 bitfield-struct = "0.13.0"
+volatile = { version = "0.6.1", features = ["derive"] }
 
 [features]
-snp = []
 default = ["snp"]
+snp = []
+alloc = []

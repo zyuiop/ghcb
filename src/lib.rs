@@ -1,9 +1,13 @@
 #![no_std]
 
 pub mod msr;
+pub mod structures;
 
 #[macro_use]
 extern crate bitflags;
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
 
 use core::arch::asm;
 
