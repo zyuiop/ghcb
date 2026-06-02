@@ -4,6 +4,7 @@ use alloc::boxed::Box;
 use core::fmt::Debug;
 use core::ptr;
 use core::sync::atomic::{AtomicU8, Ordering};
+use x86_64::instructions::interrupts::without_interrupts;
 use x86_64::structures::paging::{PhysFrame, Size4KiB};
 use crate::msr::GhcbMsr;
 use crate::protocols::GhcbProtocolRequest;
@@ -104,48 +105,50 @@ impl GhcbChannel {
     where
         F: FnOnce(GhcbRequestExecutor) -> R,
     {
-        unsafe {
-            // Make sure the GHCB we're using is registered properly with the hypervisor
-            // TODO: move to high level request execution?
-            GhcbMsr::ensure_ghcb_address_is(self.frame_address);
-        }
-
-        let instance_id = self.instance_count.fetch_add(1, Ordering::AcqRel) + 1;
-        if instance_id > MAX_GHCB_DEPTH {
-            panic!("too many nested GHCB calls!")
-        }
-
-        // If this is not the first instance, first make a copy of the GHCB somewhere else in memory
-        #[cfg(feature = "alloc")]
-        let backup = if instance_id > 1 {
-            Some(Box::new(
-                unsafe {
-                    self.page.read_volatile()
-                }
-            ))
-        } else { None };
-
-        #[cfg(not(feature = "alloc"))]
-        assert_eq!(instance_id, 1);
-
-        // Call the function
-        // SAFETY: this is unsafe, but we have made sure to make a copy, and we will restore it or
-        // panic before returning
-        let ghcb = unsafe {
-            self.get_ghcb_ref()
-        };
-        let result = f(ghcb);
-
-        #[cfg(feature = "alloc")]
-        if let Some(backup) = backup {
+        without_interrupts(|| {
             unsafe {
-                self.page.write_volatile(*backup);
+                // Make sure the GHCB we're using is registered properly with the hypervisor
+                // TODO: move to high level request execution?
+                GhcbMsr::ensure_ghcb_address_is(self.frame_address);
             }
-        }
 
-        let old_instance_id = self.instance_count.fetch_sub(1, Ordering::AcqRel);
-        assert_eq!(instance_id, old_instance_id);
+            let instance_id = self.instance_count.fetch_add(1, Ordering::AcqRel) + 1;
+            if instance_id > MAX_GHCB_DEPTH {
+                panic!("too many nested GHCB calls!")
+            }
 
-        result
+            // If this is not the first instance, first make a copy of the GHCB somewhere else in memory
+            #[cfg(feature = "alloc")]
+            let backup = if instance_id > 1 {
+                Some(Box::new(
+                    unsafe {
+                        self.page.read_volatile()
+                    }
+                ))
+            } else { None };
+
+            #[cfg(not(feature = "alloc"))]
+            assert_eq!(instance_id, 1);
+
+            // Call the function
+            // SAFETY: this is unsafe, but we have made sure to make a copy, and we will restore it or
+            // panic before returning
+            let ghcb = unsafe {
+                self.get_ghcb_ref()
+            };
+            let result = f(ghcb);
+
+            #[cfg(feature = "alloc")]
+            if let Some(backup) = backup {
+                unsafe {
+                    self.page.write_volatile(*backup);
+                }
+            }
+
+            let old_instance_id = self.instance_count.fetch_sub(1, Ordering::AcqRel);
+            assert_eq!(instance_id, old_instance_id);
+
+            result
+        })
     }
 }

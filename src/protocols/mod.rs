@@ -1,4 +1,5 @@
 pub mod ioio;
+pub mod msr;
 
 use bitfield_struct::{bitenum, bitfield};
 use crate::structures::channel::GhcbRequestExecutor;
