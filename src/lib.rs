@@ -3,6 +3,7 @@
 pub mod msr;
 pub mod structures;
 pub mod protocols;
+pub mod sev_status;
 
 #[macro_use]
 extern crate bitflags;
