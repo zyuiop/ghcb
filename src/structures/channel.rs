@@ -40,7 +40,7 @@ const MAX_GHCB_DEPTH: u8 = cfg_select! {
     _ => 1
 };
 
-pub struct GhcbRequestExecutor<'a>(&'a mut GhcbPage);
+pub struct GhcbRequestExecutor<'a>(pub &'a mut GhcbPage);
 
 impl GhcbRequestExecutor<'_> {
     #[inline(always)]

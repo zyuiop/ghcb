@@ -86,6 +86,7 @@ impl GhcbProtocolRequest for IoIoRequest<'_> {
                 }
 
                 flags.insert(IoIoExitFlags::STRING);
+                flags.insert(IoIoExitFlags::REPEAT);
                 ghcb.raw().copy_to_shared_buffer(str);
                 rep_count = str.len();
             }
@@ -111,6 +112,7 @@ impl GhcbProtocolRequest for IoIoRequest<'_> {
 
                 flags.insert(IoIoExitFlags::STRING);
                 flags.insert(IoIoExitFlags::IS_INPUT);
+                flags.insert(IoIoExitFlags::REPEAT);
                 rep_count = str.len();
             }
             IoIoOperation::ByteOut(v) => {
