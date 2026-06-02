@@ -6,6 +6,7 @@ use core::ptr;
 use core::sync::atomic::{AtomicU8, Ordering};
 use x86_64::structures::paging::{PhysFrame, Size4KiB};
 use crate::msr::GhcbMsr;
+use crate::protocols::GhcbProtocolRequest;
 
 pub struct GhcbChannel {
     /// The location in memory of the GHCB page
@@ -39,6 +40,19 @@ const MAX_GHCB_DEPTH: u8 = cfg_select! {
     _ => 1
 };
 
+pub struct GhcbRequestExecutor<'a>(&'a mut GhcbPage);
+
+impl GhcbRequestExecutor<'_> {
+    #[inline(always)]
+    pub fn raw(&mut self) -> &mut GhcbPage {
+        &mut self.0
+    }
+
+    pub fn execute<T: GhcbProtocolRequest>(&mut self, request: T) -> T::Response {
+        request.execute_request(self)
+    }
+}
+
 impl GhcbChannel {
     /// Initializes a GHCB channel for an already existing GHCB, which address is already set in
     /// the MSR.
@@ -69,18 +83,18 @@ impl GhcbChannel {
         }
     }
 
-    unsafe fn get_ghcb_ref(&self) -> &mut GhcbPage {
+    unsafe fn get_ghcb_ref(&self) -> GhcbRequestExecutor {
         let mut_ref = unsafe {
             self.page.as_mut().unwrap()
         };
         mut_ref.clear();
         mut_ref.set_phys_address(self.frame_address);
-        mut_ref
+        GhcbRequestExecutor(mut_ref)
     }
 
     /// Gets the GHCB and clears it, ignoring any potentially set data inside
     pub unsafe fn with_ghcb_forget<F>(&self, f: F, final_exit_family: u8, final_exit_code: u8) ->!
-    where F: FnOnce(&mut GhcbPage) {
+    where F: FnOnce(GhcbRequestExecutor) {
         f(self.get_ghcb_ref());
 
         GhcbMsr::terminate(final_exit_family, final_exit_code);
@@ -88,7 +102,7 @@ impl GhcbChannel {
 
     pub fn with_ghcb<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&mut GhcbPage) -> R,
+        F: FnOnce(GhcbRequestExecutor) -> R,
     {
         unsafe {
             // Make sure the GHCB we're using is registered properly with the hypervisor

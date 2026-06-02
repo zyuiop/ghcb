@@ -2,6 +2,7 @@
 
 pub mod msr;
 pub mod structures;
+pub mod protocols;
 
 #[macro_use]
 extern crate bitflags;
