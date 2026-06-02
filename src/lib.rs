@@ -1,4 +1,5 @@
 #![no_std]
+#![feature(cfg_select)]
 
 pub mod msr;
 pub mod structures;

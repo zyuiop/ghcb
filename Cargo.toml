@@ -1,3 +1,5 @@
+cargo-features = ["profile-rustflags"]
+
 [package]
 name = "ghcb"
 version = "0.1.0"
@@ -9,8 +11,26 @@ bitflags = "2.11.0"
 bitfield-struct = "0.13.0"
 volatile = { version = "0.6.1", features = ["derive"] }
 static_assertions = "1.1.0"
+aes-gcm = { version = "0.11.0-rc.4", optional = true, default-features = false, features = ["aes"] }
 
 [features]
-default = ["snp"]
-snp = []
+default = ["snp", "alloc"]
+snp = ["dep:aes-gcm"]
 alloc = []
+multi-ghcb = ["alloc"]
+
+[profile.dev.package.polyval]
+# There is a weird compiler bug for target x86_64-unknown-none... We must therefore use the soft implementation.
+rustflags = ["--cfg", "polyval_backend=\"soft\""]
+
+[profile.release.package.polyval]
+# There is a weird compiler bug for target x86_64-unknown-none... We must therefore use the soft implementation.
+rustflags = ["--cfg", "polyval_backend=\"soft\""]
+
+[profile.dev.package.aes]
+# There is a weird compiler bug for target x86_64-unknown-none... We must therefore use the soft implementation.
+rustflags = ["--cfg", "aes_backend=\"soft\""]
+
+[profile.release.package.aes]
+# There is a weird compiler bug for target x86_64-unknown-none... We must therefore use the soft implementation.
+rustflags = ["--cfg", "aes_backend=\"soft\""]

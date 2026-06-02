@@ -1,5 +1,5 @@
 use crate::structures::ghcb_page::GhcbPage;
-#[cfg(feature = "alloc")]
+#[cfg(feature = "multi-ghcb")]
 use alloc::boxed::Box;
 use core::fmt::Debug;
 use core::ptr;
@@ -118,7 +118,7 @@ impl GhcbChannel {
             }
 
             // If this is not the first instance, first make a copy of the GHCB somewhere else in memory
-            #[cfg(feature = "alloc")]
+            #[cfg(feature = "multi-ghcb")]
             let backup = if instance_id > 1 {
                 Some(Box::new(
                     unsafe {
@@ -127,7 +127,7 @@ impl GhcbChannel {
                 ))
             } else { None };
 
-            #[cfg(not(feature = "alloc"))]
+            #[cfg(not(feature = "multi-ghcb"))]
             assert_eq!(instance_id, 1);
 
             // Call the function
@@ -138,7 +138,7 @@ impl GhcbChannel {
             };
             let result = f(ghcb);
 
-            #[cfg(feature = "alloc")]
+            #[cfg(feature = "multi-ghcb")]
             if let Some(backup) = backup {
                 unsafe {
                     self.page.write_volatile(*backup);
