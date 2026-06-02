@@ -23,11 +23,11 @@ impl GhcbMsr {
     ///
     /// ## Safety
     ///
-    /// This method calls [Self::register_ghcb], so the frame must contain a valid GHCB frame,
+    /// This method calls [Self::register_and_set_ghcb], so the frame must contain a valid GHCB frame,
     /// shared with the hypervisor.
     ///
     /// This method will unregister any previously registered GHCB, which is dangerous.
-    pub unsafe fn register_ghcb(frame: PhysFrame<Size4KiB>) -> Result<(), RegistrationFailed> {
+    pub unsafe fn register_and_set_ghcb(frame: PhysFrame<Size4KiB>) -> Result<(), RegistrationFailed> {
         let response = unsafe { Self::execute(RegisterGhcbGpaRequest::new(frame)) };
 
         if response

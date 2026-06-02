@@ -12,6 +12,7 @@ pub mod unregister_ghcb_gpa;
 
 use crate::vmgexit;
 use bitfield_struct::{bitenum, bitfield};
+use x86_64::PhysAddr;
 use x86_64::registers::model_specific::Msr;
 use x86_64::structures::paging::{PhysFrame, Size4KiB};
 
@@ -64,6 +65,32 @@ impl GhcbMsr {
             // is a valid call
             Self::msr().write(frame.start_address().as_u64())
         }
+    }
+
+    /// Ensures that the GHCB address set in the MSR matches the passed argument, calling
+    /// [Self::set_ghcb_address] if that's not the case.
+    ///
+    /// ## Safety
+    ///
+    /// The address must correspond to a frame shared with the hypervisor. Its content will
+    /// be interpreted as a [Ghcb] on the next [vmmexit].
+    /// The address must have been previously registered using the [RegisterGhcbAddressProtocol] in
+    /// AMD SEV-SNP
+    pub unsafe fn ensure_ghcb_address_is(frame: PhysFrame<Size4KiB>) {
+        if Self::get_current_ghcb_address().is_none_or(|f| f != frame) {
+            Self::set_ghcb_address(frame);
+        }
+    }
+
+    /// Returns the address currently set as the GHCB address in the MSR
+    pub fn get_current_ghcb_address() -> Option<PhysFrame<Size4KiB>> {
+        let read = Self::read();
+        if read.ghcb_info() != GhcbMsrInfo::GhcbGuestPhysicalAddress {
+            return None;
+        }
+
+        let address = PhysAddr::new(read.0);
+        PhysFrame::from_start_address(address).ok()
     }
 
     /// Executes a GHCB MSR request, then resets the GHCB address if it was present, and returns
