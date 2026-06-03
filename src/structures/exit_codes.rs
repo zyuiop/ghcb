@@ -1,3 +1,4 @@
+use bitfield_struct::bitenum;
 
 #[derive(Debug, Clone, Copy)]
 #[repr(u64)]

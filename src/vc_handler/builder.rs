@@ -1,16 +1,18 @@
 #[macro_export]
-macro_rules! make_vmm_handler {
-    ($target_name:ident, $inner_handler:ident) => {
+macro_rules! make_vc_handler {
+    ($channel_manager:ty, $target_name:ident; $($exit_code:pat => $handler:expr),*) => {
+        use $crate::vc_handler::VcHandler as _;
+
         #[unsafe(naked)]
         pub extern "x86-interrupt" fn $target_name(
-            _stack_frame: ExceptionStackFrame,
+            _stack_frame: x86_64::structures::idt::InterruptStackFrame,
             _code: u64
         ) {
             // https://github.com/llvm/llvm-project/issues/10965
             // 1. push all registers
             // 2. call the real function using normal conventions, with a ptr to the stack structure
             // 3. upon return, re-set the values from the stack structure (they can be modified!)
-            naked_asm!(
+            core::arch::naked_asm!(
                 // Save general purpose registers
                 "push rbp",
 
@@ -67,8 +69,35 @@ macro_rules! make_vmm_handler {
 
                 // Call iret
                 "iretq",
-                sym $inner_handler
+                sym __inner_vc_error
             )
+        }
+
+        extern "C" fn __inner_vc_error(
+            stack_frame: &mut $crate::vc_handler::structures::stack_frame::VCInterruptStackFrame
+        ) {
+            #[cfg(feature = "logging")]
+            log::debug!("VC# HANDLE: {stack_frame:#?}");
+
+            // increment_irq_counter(29);
+            let mut instruction = $crate::vc_handler::structures::instruction_parser::InstructionData::new(stack_frame.exception.instruction_pointer.as_ptr());
+            let exit_code = $crate::vc_handler::exits::SvmInterceptCode::from_bits(stack_frame.error_code as i64);
+
+            match exit_code {
+                $(
+                    $exit_code => {
+                        ($handler).handle(stack_frame, &mut instruction)
+                    }
+                )*
+                _ => {
+                    panic!("unhandled #VC event 0x{:x} at instruction 0x{:x}", stack_frame.error_code, stack_frame.exception.instruction_pointer);
+                }
+            }
+
+            stack_frame.exception.instruction_pointer += instruction.size() as u64;
+
+            #[cfg(feature = "logging")]
+            log::debug!("VC# handle done - return address: {:#?}", stack_frame.exception.instruction_pointer);
         }
     }
 }

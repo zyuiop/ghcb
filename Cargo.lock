@@ -150,6 +150,7 @@ dependencies = [
  "aes-gcm",
  "bitfield-struct",
  "bitflags",
+ "log",
  "static_assertions",
  "volatile 0.6.1",
  "x86_64",
@@ -180,6 +181,12 @@ name = "libc"
 version = "0.2.186"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68ab91017fe16c622486840e4c83c9a37afeff978bd239b5293d61ece587de66"
+
+[[package]]
+name = "log"
+version = "0.4.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "113b30b4cd05f7c06868fdb2854f66a7b9fece9a48425351cd532e810d74024f"
 
 [[package]]
 name = "polyval"
