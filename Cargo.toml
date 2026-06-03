@@ -12,6 +12,8 @@ bitfield-struct = "0.13.0"
 volatile = { version = "0.6.1", features = ["derive"] }
 static_assertions = "1.1.0"
 aes-gcm = { version = "0.11.0-rc.4", optional = true, default-features = false, features = ["aes"] }
+zerocopy-derive = "0.9.0-alpha.0"
+zerocopy = "0.9.0-alpha.0"
 
 [features]
 default = ["snp", "alloc"]
