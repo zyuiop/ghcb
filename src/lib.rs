@@ -8,6 +8,9 @@ pub mod sev_status;
 pub mod util;
 pub mod instructions;
 
+#[cfg(feature = "vc-handler")]
+pub mod vc_handler;
+
 #[macro_use]
 extern crate bitflags;
 

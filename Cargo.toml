@@ -16,10 +16,11 @@ zerocopy-derive = "0.9.0-alpha.0"
 zerocopy = "0.9.0-alpha.0"
 
 [features]
-default = ["snp", "alloc"]
+default = ["snp", "alloc", "vc-handler"]
 snp = ["dep:aes-gcm"]
 alloc = []
 multi-ghcb = ["alloc"]
+vc-handler = []
 
 [profile.dev.package.polyval]
 # There is a weird compiler bug for target x86_64-unknown-none... We must therefore use the soft implementation.
