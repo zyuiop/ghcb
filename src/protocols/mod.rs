@@ -7,6 +7,7 @@ pub mod snp_guest_request;
 pub mod snp_ap_create;
 pub mod change_page_state;
 pub mod unsupported;
+pub mod cpuid;
 
 use bitfield_struct::{bitenum, bitfield};
 use crate::structures::channel::GhcbRequestExecutor;
