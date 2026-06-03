@@ -23,7 +23,7 @@ unsafe fn cast_ref<T>(source_ref: &mut u64) -> &mut T {
 impl<T: ChannelManager> IoIoHandler<T> {
     #[inline(always)]
     pub const fn new() -> Self {
-        IoIoHandler(PhantomData)
+        Self(PhantomData)
     }
 
     fn call_from_instruction<'a>(
