@@ -6,6 +6,7 @@ use crate::vc_handler::structures::stack_frame::VCInterruptStackFrame;
 pub mod structures;
 pub mod builder;
 pub mod exits;
+pub mod handlers;
 
 /// Represents a handler for a specific #VC exception.
 pub trait VcHandler {
