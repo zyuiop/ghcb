@@ -1,7 +1,7 @@
 use crate::protocols::GhcbProtocolRequest;
+use crate::structures::ChannelManager;
 use crate::structures::channel::GhcbRequestExecutor;
 use crate::structures::exit_codes::GhcbExitCode;
-use crate::structures::ChannelManager;
 use core::arch::asm;
 
 /// An exit event that causes a VM crash, but with more details than the MSR equivalent
@@ -18,10 +18,7 @@ impl GhcbProtocolRequest for UnsupportedExit {
 
 /// Terminates the VM with a custom exit code
 pub fn exit_error<T: ChannelManager>(code: u64) {
-    unsafe {
-        T::get_channel()
-            .with_ghcb_forget(|mut ghcb| ghcb.terminate(code), 0, 0)
-    }
+    unsafe { T::get_channel().with_ghcb_forget(|mut ghcb| ghcb.terminate(code), 0, 0) }
 }
 
 impl GhcbRequestExecutor<'_> {

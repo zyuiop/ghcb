@@ -1,3 +1,5 @@
+use crate::msr::GhcbMsr;
+use crate::protocols::GhcbProtocolRequest;
 use crate::structures::ghcb_page::GhcbPage;
 #[cfg(feature = "multi-ghcb")]
 use alloc::boxed::Box;
@@ -7,8 +9,6 @@ use core::sync::atomic::{AtomicU8, Ordering};
 use x86_64::instructions::interrupts;
 use x86_64::instructions::interrupts::without_interrupts;
 use x86_64::structures::paging::{PhysFrame, Size4KiB};
-use crate::msr::GhcbMsr;
-use crate::protocols::GhcbProtocolRequest;
 
 pub struct GhcbChannel {
     /// The location in memory of the GHCB page
@@ -29,7 +29,9 @@ unsafe impl Sync for GhcbChannel {}
 
 impl Debug for GhcbChannel {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "GhcbChannel {{ frame_address: {:#x?}, page: {:p}, count: {}}}",
+        write!(
+            f,
+            "GhcbChannel {{ frame_address: {:#x?}, page: {:p}, count: {}}}",
             self.frame_address,
             self.page,
             self.instance_count.load(Ordering::Relaxed)
@@ -67,7 +69,8 @@ impl GhcbChannel {
     /// are no longer valid
     pub unsafe fn identity_mapped() -> Option<Self> {
         let current_frame = GhcbMsr::get_current_ghcb_address()?;
-        let assumed_virt_addr = ptr::with_exposed_provenance_mut(current_frame.start_address().as_u64() as usize);
+        let assumed_virt_addr =
+            ptr::with_exposed_provenance_mut(current_frame.start_address().as_u64() as usize);
         Some(Self::new_registered(current_frame, assumed_virt_addr))
     }
 
@@ -79,24 +82,29 @@ impl GhcbChannel {
     /// This method assumes that the GHCB has been previously registered in AMD SEV-SNP.
     /// This method should be called at most once for a given pointer, otherwise [Self::with_ghcb]
     /// safety guarantees are no longer valid
-    pub unsafe fn new_registered(frame_address: PhysFrame<Size4KiB>, pointer: *mut GhcbPage) -> Self {
+    pub unsafe fn new_registered(
+        frame_address: PhysFrame<Size4KiB>,
+        pointer: *mut GhcbPage,
+    ) -> Self {
         Self {
-            frame_address, page: pointer, instance_count: AtomicU8::new(0),
+            frame_address,
+            page: pointer,
+            instance_count: AtomicU8::new(0),
         }
     }
 
     unsafe fn get_ghcb_ref(&self) -> GhcbRequestExecutor {
-        let mut_ref = unsafe {
-            self.page.as_mut().unwrap()
-        };
+        let mut_ref = unsafe { self.page.as_mut().unwrap() };
         mut_ref.clear();
         mut_ref.set_phys_address(self.frame_address);
         GhcbRequestExecutor(mut_ref)
     }
 
     /// Gets the GHCB and clears it, ignoring any potentially set data inside
-    pub unsafe fn with_ghcb_forget<F>(&self, f: F, final_exit_family: u8, final_exit_code: u8) ->!
-    where F: FnOnce(GhcbRequestExecutor) {
+    pub unsafe fn with_ghcb_forget<F>(&self, f: F, final_exit_family: u8, final_exit_code: u8) -> !
+    where
+        F: FnOnce(GhcbRequestExecutor),
+    {
         interrupts::disable();
 
         f(self.get_ghcb_ref());
@@ -123,12 +131,10 @@ impl GhcbChannel {
             // If this is not the first instance, first make a copy of the GHCB somewhere else in memory
             #[cfg(feature = "multi-ghcb")]
             let backup = if instance_id > 1 {
-                Some(Box::new(
-                    unsafe {
-                        self.page.read_volatile()
-                    }
-                ))
-            } else { None };
+                Some(Box::new(unsafe { self.page.read_volatile() }))
+            } else {
+                None
+            };
 
             #[cfg(not(feature = "multi-ghcb"))]
             assert_eq!(instance_id, 1);
@@ -136,9 +142,7 @@ impl GhcbChannel {
             // Call the function
             // SAFETY: this is unsafe, but we have made sure to make a copy, and we will restore it or
             // panic before returning
-            let ghcb = unsafe {
-                self.get_ghcb_ref()
-            };
+            let ghcb = unsafe { self.get_ghcb_ref() };
             let result = f(ghcb);
 
             #[cfg(feature = "multi-ghcb")]

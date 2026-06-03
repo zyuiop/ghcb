@@ -1,4 +1,4 @@
-use crate::msr::{GhcbMsrInfo, GhcbMsr};
+use crate::msr::{GhcbMsr, GhcbMsrInfo};
 use crate::msr::{MsrRequest, MsrResponse};
 use x86_64::PhysAddr;
 use x86_64::structures::paging::{PhysFrame, Size4KiB};

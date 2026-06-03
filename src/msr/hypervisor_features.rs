@@ -1,4 +1,4 @@
-use crate::msr::{GhcbMsrInfo, GhcbMsr, MsrRequest, MsrResponse};
+use crate::msr::{GhcbMsr, GhcbMsrInfo, MsrRequest, MsrResponse};
 
 pub struct HypervisorFeatureSupportRequest;
 

@@ -17,10 +17,8 @@ pub mod opcode {
         /// Read a (double) word in the (E)AX register from the port specified by an 8-bit immediate value
         IoInByteDx = 0xEC,
 
-
         /// Read a byte in the AL register from the port specified in the DX register
         IoInWordsImm = 0xE5,
-
 
         /// Read a (double) word in the (E)AX register from the port specified in the DX register
         IoInWordsDx = 0xED,
@@ -39,7 +37,6 @@ pub mod opcode {
 
         /// Writes the (double) word in the AL register to the port specified in the DX register
         IoOutWordsDx = 0xEF,
-
 
         IoOutsByte = 0x6E,
         IoOutsWords = 0x6F,
@@ -118,9 +115,7 @@ pub mod opcode {
 
     /// Implies an extended opcode (2-3 bytes)
     pub const TWO_BYTE_ESCAPE: u8 = 0x0F;
-
 }
-
 
 pub mod instruction_prefix {
     pub const OVERRIDE_SEGMENT_CS: u8 = 0x2E;
@@ -145,7 +140,6 @@ pub mod instruction_prefix {
     /// Extended Instruction
     pub const VEX_MAP_1: u8 = 0xC5;
 
-
     /// Extended Instruction
     pub const VEX_MAP_2: u8 = 0xC4;
 
@@ -153,7 +147,6 @@ pub mod instruction_prefix {
     pub const XOP: u8 = 0x8F;
 
     pub const LOCK: u8 = 0xF0;
-
 
     bitflags! {
         #[derive(Clone, Copy, Debug)]
@@ -178,12 +171,17 @@ pub mod instruction_prefix {
     }
 }
 
-
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Register {
-    Rax, Rcx, Rdx, Rbx,
-    Rsp, Rbp, Rsi, Rdi
+    Rax,
+    Rcx,
+    Rdx,
+    Rbx,
+    Rsp,
+    Rbp,
+    Rsi,
+    Rdi,
 }
 
 impl Register {
@@ -197,7 +195,7 @@ impl Register {
                 Register::Rsp => frame.registers.r12,
                 Register::Rbp => frame.registers.r13,
                 Register::Rsi => frame.registers.r14,
-                Register::Rdi => frame.registers.r15
+                Register::Rdi => frame.registers.r15,
             }
         } else {
             match self {
@@ -208,7 +206,7 @@ impl Register {
                 Register::Rsp => frame.exception.stack_pointer.as_u64(),
                 Register::Rbp => frame.registers.rbp,
                 Register::Rsi => frame.registers.rsi,
-                Register::Rdi => frame.registers.rdi
+                Register::Rdi => frame.registers.rdi,
             }
         }
     }
@@ -223,7 +221,7 @@ impl Register {
                 Register::Rsp => &frame.registers.r12 as *const _ as *const u8,
                 Register::Rbp => &frame.registers.r13 as *const _ as *const u8,
                 Register::Rsi => &frame.registers.r14 as *const _ as *const u8,
-                Register::Rdi => &frame.registers.r15 as *const _ as *const u8
+                Register::Rdi => &frame.registers.r15 as *const _ as *const u8,
             }
         } else {
             match self {
@@ -234,7 +232,7 @@ impl Register {
                 Register::Rsp => &frame.exception.stack_pointer as *const _ as *const u8,
                 Register::Rbp => &frame.registers.rbp as *const _ as *const u8,
                 Register::Rsi => &frame.registers.rsi as *const _ as *const u8,
-                Register::Rdi => &frame.registers.rdi as *const _ as *const u8
+                Register::Rdi => &frame.registers.rdi as *const _ as *const u8,
             }
         }
     }
@@ -244,7 +242,11 @@ impl Register {
         reference as *mut _ as *mut u8
     }
 
-    fn get_register_mut<'a>(&self, frame: &'a mut VCInterruptStackFrame, x64_extended: bool) -> &'a mut u64 {
+    fn get_register_mut<'a>(
+        &self,
+        frame: &'a mut VCInterruptStackFrame,
+        x64_extended: bool,
+    ) -> &'a mut u64 {
         if x64_extended {
             match self {
                 Register::Rax => &mut frame.registers.r8,
@@ -254,7 +256,7 @@ impl Register {
                 Register::Rsp => &mut frame.registers.r12,
                 Register::Rbp => &mut frame.registers.r13,
                 Register::Rsi => &mut frame.registers.r14,
-                Register::Rdi => &mut frame.registers.r15
+                Register::Rdi => &mut frame.registers.r15,
             }
         } else {
             match self {
@@ -262,16 +264,18 @@ impl Register {
                 Register::Rcx => &mut frame.registers.rcx,
                 Register::Rdx => &mut frame.registers.rdx,
                 Register::Rbx => &mut frame.registers.rbx,
-                Register::Rsp => unsafe { ((&mut frame.exception.stack_pointer) as *mut _ as *mut u64).as_mut().unwrap() },
+                Register::Rsp => unsafe {
+                    ((&mut frame.exception.stack_pointer) as *mut _ as *mut u64)
+                        .as_mut()
+                        .unwrap()
+                },
                 Register::Rbp => &mut frame.registers.rbp,
                 Register::Rsi => &mut frame.registers.rsi,
-                Register::Rdi => &mut frame.registers.rdi
+                Register::Rdi => &mut frame.registers.rdi,
             }
         }
     }
-
 }
-
 
 /// Represents a register which may have been "increased" via a x64 register extension command
 pub struct ExtendedRegister(pub Register, pub bool);
@@ -286,12 +290,14 @@ impl ExtendedRegister {
     pub fn as_slice<'a>(&self, frame: &'a VCInterruptStackFrame, size: usize) -> &'a [u8] {
         assert!(size < size_of::<u64>());
 
-        unsafe {
-            core::slice::from_raw_parts(self.0.as_ptr(frame, self.1), size)
-        }
+        unsafe { core::slice::from_raw_parts(self.0.as_ptr(frame, self.1), size) }
     }
 
-    pub fn as_mut_slice<'a>(&self, frame: &'a mut VCInterruptStackFrame, size: usize) -> &'a mut [u8] {
+    pub fn as_mut_slice<'a>(
+        &self,
+        frame: &'a mut VCInterruptStackFrame,
+        size: usize,
+    ) -> &'a mut [u8] {
         assert!(size < size_of::<u64>());
 
         unsafe {
@@ -307,7 +313,7 @@ impl ExtendedRegister {
 
 pub struct DisplacedMemoryLocation {
     pub displacement_bytes: u8,
-    pub base_register: Option<ExtendedRegister>
+    pub base_register: Option<ExtendedRegister>,
 }
 
 pub enum BaseMemoryLocation {
@@ -318,7 +324,7 @@ pub enum BaseMemoryLocation {
         base_register: Option<ExtendedRegister>,
         /// If absent, use 0 as value
         index: Option<ExtendedRegister>,
-    }
+    },
 }
 
 /*

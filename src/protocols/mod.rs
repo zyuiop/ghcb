@@ -1,21 +1,21 @@
+pub mod change_page_state;
+pub mod cpuid;
 pub mod ioio;
-pub mod msr;
 pub mod mmio;
-#[cfg(feature = "snp")]
-pub mod snp_guest_request;
+pub mod msr;
 #[cfg(feature = "snp")]
 pub mod snp_ap_create;
-pub mod change_page_state;
+#[cfg(feature = "snp")]
+pub mod snp_guest_request;
 pub mod unsupported;
-pub mod cpuid;
 
-use bitfield_struct::{bitenum, bitfield};
-use crate::structures::channel::GhcbRequestExecutor;
+use crate::instructions::vmgexit;
 use crate::structures::ChannelManager;
+use crate::structures::channel::GhcbRequestExecutor;
 use crate::structures::errors::MalformedGhcbError;
 use crate::structures::exit_codes::GhcbExitCode;
 use crate::structures::ghcb_page::GhcbU64Field;
-use crate::instructions::vmgexit;
+use bitfield_struct::{bitenum, bitfield};
 
 pub trait GhcbProtocolRequest: Sized {
     type Response;
@@ -34,26 +34,41 @@ pub trait GhcbProtocolRequest: Sized {
 }
 
 impl GhcbRequestExecutor<'_> {
-    pub(crate) fn checked_vmgexit(&mut self, exitcode: GhcbExitCode, exit_info1: u64, exit_info2: u64) {
+    pub(crate) fn checked_vmgexit(
+        &mut self,
+        exitcode: GhcbExitCode,
+        exit_info1: u64,
+        exit_info2: u64,
+    ) {
         let ghcb = self.raw();
 
         ghcb.set_exit_code(exitcode);
         ghcb.set_field(GhcbU64Field::SwExitInfo1, exit_info1);
         ghcb.set_field(GhcbU64Field::SwExitInfo2, exit_info2);
 
-        unsafe { vmgexit(); }
+        unsafe {
+            vmgexit();
+        }
 
         // Check error code if present
-        match ghcb.get_field_if_valid(GhcbU64Field::SwExitInfo1).expect("Invalid vmgexit result") & 0xffff_ffff {
-            0x0000 => { () }
+        match ghcb
+            .get_field_if_valid(GhcbU64Field::SwExitInfo1)
+            .expect("Invalid vmgexit result")
+            & 0xffff_ffff
+        {
+            0x0000 => (),
             0x0001 => {
-                let exit2 = ghcb.get_field_if_valid(GhcbU64Field::SwExitInfo2).expect("Missing event injection details");
+                let exit2 = ghcb
+                    .get_field_if_valid(GhcbU64Field::SwExitInfo2)
+                    .expect("Missing event injection details");
                 let inject = EventInjection::from_bits(exit2);
 
                 handle_event_injection(inject);
             }
             0x0002 => {
-                let exit2 = ghcb.get_field_if_valid(GhcbU64Field::SwExitInfo2).expect("Missing error code");
+                let exit2 = ghcb
+                    .get_field_if_valid(GhcbU64Field::SwExitInfo2)
+                    .expect("Missing error code");
                 let error = MalformedGhcbError::from(exit2);
                 panic!("GHCB Protocol Error: {error}");
             }
@@ -62,7 +77,6 @@ impl GhcbRequestExecutor<'_> {
             }
         }
     }
-
 }
 
 #[bitenum]
@@ -73,7 +87,7 @@ enum EventInjectionType {
     INTR = 0x0,
     NMI = 0x2,
     Exception = 0x3,
-    SoftwareInterrupt = 0x4
+    SoftwareInterrupt = 0x4,
 }
 
 #[bitfield(u64)]
@@ -87,7 +101,7 @@ struct EventInjection {
     _reserved: u32,
     #[bits(1)]
     valid: bool,
-    error_code: u32
+    error_code: u32,
 }
 
 fn handle_event_injection(event_injection: EventInjection) {

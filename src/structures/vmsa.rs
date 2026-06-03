@@ -1,5 +1,8 @@
+use crate::instructions::rmpadjust::{RmpAdjustment, rmpadjust};
+use crate::sev_status::{SevStatusFlags, SevStatusMsr};
+use crate::util::{OwnedPtr, OwnedPtrWithPhysAddr};
 use bitflags::Flags;
-use core::mem::{offset_of, MaybeUninit};
+use core::mem::{MaybeUninit, offset_of};
 use core::ops::BitAnd;
 use core::ptr;
 use core::ptr::NonNull;
@@ -8,11 +11,8 @@ use x86_64::registers::control::{Cr0Flags, Cr3Flags, Cr4, Cr4Flags, EferFlags};
 use x86_64::registers::debug::{Dr6Flags, Dr7Flags};
 use x86_64::registers::rflags::RFlags;
 use x86_64::registers::xcontrol::XCr0Flags;
-use x86_64::{PhysAddr, VirtAddr};
 use x86_64::structures::paging::{Page, Size4KiB};
-use crate::instructions::rmpadjust::{rmpadjust, RmpAdjustment};
-use crate::sev_status::{SevStatusFlags, SevStatusMsr};
-use crate::util::{OwnedPtr, OwnedPtrWithPhysAddr};
+use x86_64::{PhysAddr, VirtAddr};
 
 #[derive(Copy, Clone, Debug)]
 #[repr(C, packed)]
@@ -91,9 +91,7 @@ impl VMSaveArea {
             value.as_mut_ptr().write_bytes(0, 1);
         }
 
-        let mut value = unsafe {
-            value.assume_init_mut()
-        };
+        let mut value = unsafe { value.assume_init_mut() };
 
         init_sr!(value.es);
         init_sr!(value.cs);
@@ -131,7 +129,6 @@ impl VMSaveArea {
         value
     }
 }
-
 
 impl Default for VMSaveArea {
     /// WARNING: This method will absolutely destroy your stack
@@ -368,18 +365,16 @@ impl AllocatedVMSaveArea {
     /// The pointer must be unique.
     pub unsafe fn from_uninit(
         allocated_ptr: *mut MaybeUninit<VMSaveArea>,
-        phys_addr: PhysAddr
+        phys_addr: PhysAddr,
     ) -> Self {
         let ptr = VMSaveArea::init(allocated_ptr.as_mut().unwrap());
-        let ptr = unsafe {
-            Self::new(NonNull::from_mut(ptr), phys_addr)
-        };
+        let ptr = unsafe { Self::new(NonNull::from_mut(ptr), phys_addr) };
 
         // Register/RMPAdjust
         unsafe {
             rmpadjust::<Size4KiB>(
                 Page::from_start_address(ptr.virt_addr()).unwrap(),
-                RmpAdjustment::new_vmsa(1)
+                RmpAdjustment::new_vmsa(1),
             )
         }
 

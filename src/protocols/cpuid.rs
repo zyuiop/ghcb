@@ -1,15 +1,15 @@
-use core::arch::x86_64::CpuidResult;
-use x86_64::registers::control::{Cr4, Cr4Flags};
-use x86_64::registers::xcontrol::XCr0;
 use crate::protocols::GhcbProtocolRequest;
 use crate::structures::channel::GhcbRequestExecutor;
 use crate::structures::exit_codes::GhcbExitCode;
 use crate::structures::ghcb_page::GhcbU64Field;
+use core::arch::x86_64::CpuidResult;
+use x86_64::registers::control::{Cr4, Cr4Flags};
+use x86_64::registers::xcontrol::XCr0;
 
 pub struct CpuIdRequest {
     leaf: u32,
     subleaf: u32,
-    xcr0: u64
+    xcr0: u64,
 }
 
 fn read_xcr0() -> u64 {
@@ -31,7 +31,11 @@ impl CpuIdRequest {
             "Encrypted memory capabilities CPUID function must be secured by hypervisor in CPUID page!"
         );
 
-        CpuIdRequest { leaf, subleaf: 0, xcr0: 0 }
+        CpuIdRequest {
+            leaf,
+            subleaf: 0,
+            xcr0: 0,
+        }
     }
 
     #[inline(always)]
@@ -60,10 +64,22 @@ impl GhcbProtocolRequest for CpuIdRequest {
         ghcb.checked_vmgexit(GhcbExitCode::CPUID, 0, 0);
 
         CpuidResult {
-            eax: ghcb.raw().get_field_if_valid(GhcbU64Field::Rax).expect("cpuid: missing EAX field") as u32,
-            ebx: ghcb.raw().get_field_if_valid(GhcbU64Field::Rbx).expect("cpuid: missing EAX field") as u32,
-            ecx: ghcb.raw().get_field_if_valid(GhcbU64Field::Rcx).expect("cpuid: missing EAX field") as u32,
-            edx: ghcb.raw().get_field_if_valid(GhcbU64Field::Rdx).expect("cpuid: missing EAX field") as u32,
+            eax: ghcb
+                .raw()
+                .get_field_if_valid(GhcbU64Field::Rax)
+                .expect("cpuid: missing EAX field") as u32,
+            ebx: ghcb
+                .raw()
+                .get_field_if_valid(GhcbU64Field::Rbx)
+                .expect("cpuid: missing EAX field") as u32,
+            ecx: ghcb
+                .raw()
+                .get_field_if_valid(GhcbU64Field::Rcx)
+                .expect("cpuid: missing EAX field") as u32,
+            edx: ghcb
+                .raw()
+                .get_field_if_valid(GhcbU64Field::Rdx)
+                .expect("cpuid: missing EAX field") as u32,
         }
     }
 }

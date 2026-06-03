@@ -1,20 +1,23 @@
-use core::marker::PhantomData;
 use crate::protocols::GhcbProtocolRequest;
-use crate::structures::channel::GhcbRequestExecutor;
 use crate::structures::ChannelManager;
+use crate::structures::channel::GhcbRequestExecutor;
 use crate::structures::exit_codes::GhcbExitCode;
 use crate::structures::ghcb_page::GhcbU64Field;
+use core::marker::PhantomData;
 
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct GhcbMsr<T> {
     msr: u32,
-    _phandom: PhantomData<T>
+    _phandom: PhantomData<T>,
 }
 
 impl<T: ChannelManager> GhcbMsr<T> {
     pub const fn new(msr: u32) -> Self {
-        Self { msr, _phandom: PhantomData }
+        Self {
+            msr,
+            _phandom: PhantomData,
+        }
     }
 
     #[inline]
@@ -31,7 +34,7 @@ impl<T: ChannelManager> GhcbMsr<T> {
 pub struct WriteMsrRequest {
     msr: u32,
     msb: u32,
-    lsb: u32
+    lsb: u32,
 }
 
 impl WriteMsrRequest {
@@ -51,7 +54,6 @@ impl WriteMsrRequest {
     }
 }
 
-
 impl GhcbProtocolRequest for WriteMsrRequest {
     type Response = ();
 
@@ -68,7 +70,7 @@ impl GhcbProtocolRequest for WriteMsrRequest {
 
 #[repr(transparent)]
 pub struct ReadMsrRequest {
-    msr: u32
+    msr: u32,
 }
 
 impl GhcbProtocolRequest for ReadMsrRequest {

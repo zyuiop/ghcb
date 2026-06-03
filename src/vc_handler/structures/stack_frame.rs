@@ -25,5 +25,5 @@ pub struct SavedRegisters {
 pub struct VCInterruptStackFrame {
     pub registers: SavedRegisters,
     pub error_code: u64,
-    pub exception: InterruptStackFrameValue
+    pub exception: InterruptStackFrameValue,
 }

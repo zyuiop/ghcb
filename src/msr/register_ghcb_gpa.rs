@@ -1,4 +1,4 @@
-use crate::msr::{GhcbMsrInfo, GhcbMsr};
+use crate::msr::{GhcbMsr, GhcbMsrInfo};
 use crate::msr::{MsrRequest, MsrResponse};
 use x86_64::PhysAddr;
 use x86_64::structures::paging::{PhysFrame, Size4KiB};
@@ -27,7 +27,9 @@ impl GhcbMsr {
     /// shared with the hypervisor.
     ///
     /// This method will unregister any previously registered GHCB, which is dangerous.
-    pub unsafe fn register_and_set_ghcb(frame: PhysFrame<Size4KiB>) -> Result<(), RegistrationFailed> {
+    pub unsafe fn register_and_set_ghcb(
+        frame: PhysFrame<Size4KiB>,
+    ) -> Result<(), RegistrationFailed> {
         let response = unsafe { Self::execute(RegisterGhcbGpaRequest::new(frame)) };
 
         if response

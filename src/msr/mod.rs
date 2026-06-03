@@ -175,7 +175,7 @@ pub enum GhcbMsrInfo {
 
 #[cfg(test)]
 mod tests {
-    use crate::msr::{GhcbMsrInfo, GhcbMsrData};
+    use crate::msr::{GhcbMsrData, GhcbMsrInfo};
 
     #[test]
     fn test_serialize() {

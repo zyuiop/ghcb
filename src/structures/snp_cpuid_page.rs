@@ -8,11 +8,11 @@ pub struct CPUIDPage {
     _padding: u32,
     _padding2: u64,
     cpuid: [CPUIDFunction; MAX_CPUID_FUNCTIONS],
-    _padding3: [u8; 1008]
+    _padding3: [u8; 1008],
 }
 
 impl CPUIDPage {
-    pub fn get_cpuid(&self, eax: u32, ecx: u32, xcr0: u64) -> Option<& CPUIDFunction> {
+    pub fn get_cpuid(&self, eax: u32, ecx: u32, xcr0: u64) -> Option<&CPUIDFunction> {
         if eax & 0x8000_FFFF != eax {
             // Only standard range is checked: 0000_0000 to 0000_FFFF and 8000_0000 to 8000_FFFF
             return None;
@@ -44,9 +44,8 @@ pub struct CPUIDFunction {
     pub ebx: u32,
     pub ecx: u32,
     pub edx: u32,
-    _padding: u64
+    _padding: u64,
 }
 
 const_assert_eq!(size_of::<CPUIDFunction>(), 48);
 const_assert_eq!(size_of::<CPUIDPage>(), 4096);
-

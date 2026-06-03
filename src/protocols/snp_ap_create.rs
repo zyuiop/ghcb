@@ -1,10 +1,10 @@
-use bitfield_struct::{bitenum, bitfield};
-use crate::structures::vmsa::AllocatedVMSaveArea;
-use x86_64::VirtAddr;
 use crate::protocols::GhcbProtocolRequest;
 use crate::structures::channel::GhcbRequestExecutor;
 use crate::structures::exit_codes::GhcbExitCode;
 use crate::structures::ghcb_page::GhcbU64Field;
+use crate::structures::vmsa::AllocatedVMSaveArea;
+use bitfield_struct::{bitenum, bitfield};
+use x86_64::VirtAddr;
 
 #[bitenum]
 #[repr(u16)]
@@ -19,7 +19,7 @@ pub enum ApOperation {
     CreateAddImmediate = 1,
 
     /// Remove the VMSA for the CPU, preventing it from running
-    DestroyRemove = 2
+    DestroyRemove = 2,
 }
 
 #[bitfield(u64)]
@@ -33,13 +33,13 @@ struct ApRequest {
     #[bits(12)]
     _reserved: u16,
 
-    apic_id: u32
+    apic_id: u32,
 }
 
 pub struct SnpApCreate {
     vmsa: AllocatedVMSaveArea,
     request: ApRequest,
-    start_jump_addr: VirtAddr
+    start_jump_addr: VirtAddr,
 }
 
 impl SnpApCreate {
@@ -53,8 +53,10 @@ impl SnpApCreate {
     pub fn new(vmsa: AllocatedVMSaveArea, apic_id: u32, start_jump_addr: VirtAddr) -> Self {
         Self {
             vmsa,
-            request: ApRequest::new().with_apic_id(apic_id).with_operation(ApOperation::CreateAddImmediate),
-            start_jump_addr
+            request: ApRequest::new()
+                .with_apic_id(apic_id)
+                .with_operation(ApOperation::CreateAddImmediate),
+            start_jump_addr,
         }
     }
 
@@ -80,11 +82,12 @@ impl GhcbProtocolRequest for SnpApCreate {
         self.vmsa.set_start_instr_ptr(self.start_jump_addr);
 
         ghcb.raw().clear();
-        ghcb.raw().set_field(GhcbU64Field::Rax, self.vmsa.snp_features().bits());
+        ghcb.raw()
+            .set_field(GhcbU64Field::Rax, self.vmsa.snp_features().bits());
         ghcb.checked_vmgexit(
             GhcbExitCode::SnpApCreation,
             self.request.into_bits(),
-            self.vmsa.phys_addr().as_u64()
+            self.vmsa.phys_addr().as_u64(),
         );
     }
 }

@@ -1,4 +1,4 @@
-use super::{GhcbMsrInfo, GhcbMsr};
+use super::{GhcbMsr, GhcbMsrInfo};
 use super::{MsrRequest, MsrResponse};
 use bitfield_struct::bitfield;
 

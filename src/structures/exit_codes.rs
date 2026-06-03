@@ -41,10 +41,10 @@ pub enum GhcbExitCode {
 
     SnpRunVmpl = 0x8000_0018,
     SnpTioGuestRequest = 0x8000_0019,
-    SecureAvic= 0x8000_001a,
+    SecureAvic = 0x8000_001a,
 
     HypervisorFeatureSupport = 0x8000_fffd,
 
     TerminationRequest = 0x8000_fffe,
-    UnsupportedEvent = 0x8000_ffff
+    UnsupportedEvent = 0x8000_ffff,
 }

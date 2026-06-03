@@ -1,23 +1,22 @@
-pub mod error;
 pub mod attest;
+pub mod error;
 pub mod shared_page;
 
+use crate::structures::snp_secrets_page::SecretsPageAccessor;
 use aes_gcm::{AeadInOut, KeyInit};
 use bitfield_struct::bitenum;
 use zerocopy::{FromBytes, IntoBytes};
-use crate::structures::snp_secrets_page::SecretsPageAccessor;
-
 
 #[derive(PartialEq, Eq, Debug)]
 #[repr(u8)]
 pub enum SNPAeadAlgorithm {
-    AesGcm = 1
+    AesGcm = 1,
 }
 
 #[derive(PartialEq, Eq, Debug)]
 #[repr(u8)]
 enum SNPHeaderVersion {
-    Version1 = 1
+    Version1 = 1,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -173,7 +172,7 @@ pub enum GuestProtocolStatusCode {
     InvalidKey = 0x0027,
 
     #[fallback]
-    InvalidError = 0xFFFF
+    InvalidError = 0xFFFF,
 }
 
 pub trait SNPGuestRequest: Sized + FromBytes + IntoBytes {

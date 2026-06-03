@@ -1,8 +1,7 @@
-pub mod rmpadjust;
 pub mod pvalidate;
+pub mod rmpadjust;
 
 use core::arch::asm;
-
 
 /// Exits to the hypervisor to execute a GHCB request.
 ///

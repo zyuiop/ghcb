@@ -1,9 +1,9 @@
-use bitfield_struct::bitfield;
 use crate::protocols::GhcbProtocolRequest;
-use crate::structures::channel::GhcbRequestExecutor;
 use crate::structures::ChannelManager;
+use crate::structures::channel::GhcbRequestExecutor;
 use crate::structures::exit_codes::GhcbExitCode;
 use crate::structures::ghcb_page::GhcbU64Field;
+use bitfield_struct::bitfield;
 
 pub struct IoIoRequest<'a> {
     io_port: u16,
@@ -14,7 +14,9 @@ pub struct IoIoRequest<'a> {
 impl<'a> IoIoRequest<'a> {
     pub fn new(io_port: u16, operation: IoIoOperation<'a>) -> Self {
         Self {
-            io_port, operation, segment_number: 0,
+            io_port,
+            operation,
+            segment_number: 0,
         }
     }
 
@@ -26,32 +28,27 @@ impl<'a> IoIoRequest<'a> {
     }
 }
 
-
 #[inline]
 pub fn outb<T: ChannelManager>(port: u16, val: u8) {
-    IoIoRequest::new(port, IoIoOperation::ByteOut(val))
-        .execute::<T>()
+    IoIoRequest::new(port, IoIoOperation::ByteOut(val)).execute::<T>()
 }
 
 #[inline]
 pub fn out_u32<T: ChannelManager>(port: u16, val: u32) {
-    IoIoRequest::new(port, IoIoOperation::DblWordOut(val))
-        .execute::<T>()
+    IoIoRequest::new(port, IoIoOperation::DblWordOut(val)).execute::<T>()
 }
 
 #[inline]
 pub fn in_u32<T: ChannelManager>(port: u16) -> u32 {
     let mut ret: u32 = 0;
-    IoIoRequest::new(port, IoIoOperation::DblWordIn(&mut ret))
-        .execute::<T>();
+    IoIoRequest::new(port, IoIoOperation::DblWordIn(&mut ret)).execute::<T>();
     ret
 }
 
 #[inline]
 pub fn inb<T: ChannelManager>(port: u16) -> u8 {
     let mut ret: u8 = 0;
-    IoIoRequest::new(port, IoIoOperation::ByteIn(&mut ret))
-        .execute::<T>();
+    IoIoRequest::new(port, IoIoOperation::ByteIn(&mut ret)).execute::<T>();
     ret
 }
 
@@ -74,15 +71,17 @@ impl GhcbProtocolRequest for IoIoRequest<'_> {
                     IoIoRequest {
                         io_port: self.io_port,
                         segment_number: self.segment_number,
-                        operation: IoIoOperation::StringOut(str)
-                    }.execute_request(ghcb);
+                        operation: IoIoOperation::StringOut(str),
+                    }
+                    .execute_request(ghcb);
 
                     // And second part
                     return IoIoRequest {
                         io_port: self.io_port,
                         segment_number: self.segment_number,
-                        operation: IoIoOperation::StringOut(rest)
-                    }.execute_request(ghcb);
+                        operation: IoIoOperation::StringOut(rest),
+                    }
+                    .execute_request(ghcb);
                 }
 
                 flags.insert(IoIoExitFlags::STRING);
@@ -99,15 +98,17 @@ impl GhcbProtocolRequest for IoIoRequest<'_> {
                     IoIoRequest {
                         io_port: self.io_port,
                         segment_number: self.segment_number,
-                        operation: IoIoOperation::StringIn(str)
-                    }.execute_request(ghcb);
+                        operation: IoIoOperation::StringIn(str),
+                    }
+                    .execute_request(ghcb);
 
                     // And second part
                     return IoIoRequest {
                         io_port: self.io_port,
                         segment_number: self.segment_number,
-                        operation: IoIoOperation::StringIn(rest)
-                    }.execute_request(ghcb);
+                        operation: IoIoOperation::StringIn(rest),
+                    }
+                    .execute_request(ghcb);
                 }
 
                 flags.insert(IoIoExitFlags::STRING);
@@ -190,21 +191,21 @@ pub enum IoIoOperation<'a> {
 }
 
 bitflags! {
-	#[derive(Debug, Copy, Clone, Default)]
-	struct IoIoExitFlags: u16 {
-		const IS_INPUT = 1 << 0; // Access Type, set to 1 to indicate input
+    #[derive(Debug, Copy, Clone, Default)]
+    struct IoIoExitFlags: u16 {
+        const IS_INPUT = 1 << 0; // Access Type, set to 1 to indicate input
 
-		const STRING = 1 << 2;
-		const REPEAT = 1 << 3;
+        const STRING = 1 << 2;
+        const REPEAT = 1 << 3;
 
-		const DATA_8B = 1 << 4;
-		const DATA_16B = 1 << 5;
-		const DATA_32B = 1 << 6;
+        const DATA_8B = 1 << 4;
+        const DATA_16B = 1 << 5;
+        const DATA_32B = 1 << 6;
 
-		const ADDR_16B = 1 << 7;
-		const ADDR_32B = 1 << 8;
-		const ADDR_64B = 1 << 9;
-	}
+        const ADDR_16B = 1 << 7;
+        const ADDR_32B = 1 << 8;
+        const ADDR_64B = 1 << 9;
+    }
 }
 
 #[bitfield(u32)]

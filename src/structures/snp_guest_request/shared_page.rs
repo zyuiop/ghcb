@@ -1,13 +1,17 @@
-use core::{ptr, slice};
-use core::mem::MaybeUninit;
-use aes_gcm::{AeadInOut, Aes256Gcm, KeyInit, Nonce, Tag};
+use crate::structures::snp_guest_request::{
+    MessageType, SNPAeadAlgorithm, SNPGuestRequest, SNPGuestResponse, SNPHeaderVersion,
+};
+use crate::structures::snp_secrets_page::{
+    CommunicationKeyNumber, SecretsPageAccessor, VMCommunicationKey,
+};
+use crate::util::OwnedPtrWithPhysAddr;
 use aes_gcm::aead::consts::{U12, U16};
+use aes_gcm::{AeadInOut, Aes256Gcm, KeyInit, Nonce, Tag};
+use core::mem::MaybeUninit;
+use core::{ptr, slice};
 use static_assertions::const_assert_eq;
 use x86_64::PhysAddr;
 use zerocopy::IntoBytes;
-use crate::structures::snp_guest_request::{MessageType, SNPAeadAlgorithm, SNPGuestRequest, SNPGuestResponse, SNPHeaderVersion};
-use crate::structures::snp_secrets_page::{CommunicationKeyNumber, SecretsPageAccessor, VMCommunicationKey};
-use crate::util::OwnedPtrWithPhysAddr;
 
 #[repr(C)]
 struct SNPSharedPageHeader {
@@ -74,11 +78,13 @@ const PAYLOAD_LEN: usize = 0x1000 - size_of::<SNPSharedPageHeader>();
 
 impl SNPSharedPage {
     pub fn clear(&mut self) {
-        unsafe {
-            ptr::from_mut(&mut self.header).write_bytes(0, 1)
-        }
+        unsafe { ptr::from_mut(&mut self.header).write_bytes(0, 1) }
     }
-    pub fn write_request<SP: SecretsPageAccessor, R: SNPGuestRequest>(&mut self, secrets: &SP, request: R) {
+    pub fn write_request<SP: SecretsPageAccessor, R: SNPGuestRequest>(
+        &mut self,
+        secrets: &SP,
+        request: R,
+    ) {
         // Read request as bytes
         let mut request = request;
         let mut request = request.as_mut_bytes();
@@ -110,23 +116,36 @@ impl SNPSharedPage {
 
         // Encrypt the payload
         let aes = Aes256Gcm::new(&key);
-        let tag: Tag<U16> = aes.encrypt_inout_detached(&self.header.nonce(), self.header.associated_data(), request.into()).unwrap();
+        let tag: Tag<U16> = aes
+            .encrypt_inout_detached(
+                &self.header.nonce(),
+                self.header.associated_data(),
+                request.into(),
+            )
+            .unwrap();
 
         self.header.authentication_tag[0..16].copy_from_slice(tag.as_slice());
         self.payload[0..request_size].clone_from_slice(request);
     }
 
-    fn check_response_header<SP: SecretsPageAccessor>(&self, secrets: &SP) -> (VMCommunicationKey, u32, usize) {
+    fn check_response_header<SP: SecretsPageAccessor>(
+        &self,
+        secrets: &SP,
+    ) -> (VMCommunicationKey, u32, usize) {
         // Verify header
         assert_eq!(self.header.header_version, SNPHeaderVersion::Version1);
         assert_eq!(self.header.algo, SNPAeadAlgorithm::AesGcm);
-        assert_eq!(self.header.header_size, size_of::<SNPSharedPageHeader>() as u16);
+        assert_eq!(
+            self.header.header_size,
+            size_of::<SNPSharedPageHeader>() as u16
+        );
 
         let payload_len = self.header.payload_size as usize;
         assert_ne!(payload_len, 0);
         assert!(payload_len < self.payload.len());
 
-        let key_used = CommunicationKeyNumber::try_from(self.header.vmkey).expect("invalid VMKey number");
+        let key_used =
+            CommunicationKeyNumber::try_from(self.header.vmkey).expect("invalid VMKey number");
         let (key, seqno) = secrets.with_secrets_page(|page| {
             page.increase_sequence_number(key_used);
             let seqno = page.get_sequence_number(key_used);
@@ -141,13 +160,24 @@ impl SNPSharedPage {
     }
 
     pub fn read_response<SP: SecretsPageAccessor, R: SNPGuestResponse>(&self, secrets: &SP) -> R {
-        assert_eq!(self.header.message_type, R::message_type(), "invalid response message type");
+        assert_eq!(
+            self.header.message_type,
+            R::message_type(),
+            "invalid response message type"
+        );
 
-        assert!(size_of::<R>() <= PAYLOAD_LEN, "response type cannot fit in page");
+        assert!(
+            size_of::<R>() <= PAYLOAD_LEN,
+            "response type cannot fit in page"
+        );
 
         let (key, seqno, payload_len) = self.check_response_header::<SP>(secrets);
 
-        assert_eq!(payload_len, size_of::<R>(), "invalid response length received");
+        assert_eq!(
+            payload_len,
+            size_of::<R>(),
+            "invalid response length received"
+        );
 
         // Decrypt payload
         let mut output_object = unsafe {
@@ -156,22 +186,34 @@ impl SNPSharedPage {
         };
         let mut output_slice = IntoBytes::as_mut_bytes(&mut output_object);
 
-        assert_eq!(payload_len, output_slice.len(), "invalid response length received");
+        assert_eq!(
+            payload_len,
+            output_slice.len(),
+            "invalid response length received"
+        );
 
         output_slice.copy_from_slice(&self.payload[..payload_len]);
 
         let tag = Tag::try_from(&self.header.authentication_tag[0..16]).unwrap();
         let aes = Aes256Gcm::new(&key);
 
-        aes.decrypt_inout_detached(&self.header.nonce(), self.header.associated_data(), output_slice.into(), &tag)
-            .expect("failed to decrypt guest protocol response");
+        aes.decrypt_inout_detached(
+            &self.header.nonce(),
+            self.header.associated_data(),
+            output_slice.into(),
+            &tag,
+        )
+        .expect("failed to decrypt guest protocol response");
 
         output_object
     }
 
     /// Reads a binary response from the secrets page and returns a vector for the bytes read
     #[cfg(feature = "alloc")]
-    pub fn read_response_raw_to_vec<SP: SecretsPageAccessor>(&self, secrets: &SP) -> alloc::vec::Vec<u8> {
+    pub fn read_response_raw_to_vec<SP: SecretsPageAccessor>(
+        &self,
+        secrets: &SP,
+    ) -> alloc::vec::Vec<u8> {
         let (key, seqno, payload_len) = self.check_response_header::<SP>(secrets);
 
         // Decrypt payload
@@ -179,8 +221,13 @@ impl SNPSharedPage {
         let tag = Tag::try_from(&self.header.authentication_tag[0..16]).unwrap();
         let aes = Aes256Gcm::new(&key);
 
-        aes.decrypt_inout_detached(&self.header.nonce(), self.header.associated_data(), vec.as_mut_slice().into(), &tag)
-            .expect("failed to decrypt guest protocol response");
+        aes.decrypt_inout_detached(
+            &self.header.nonce(),
+            self.header.associated_data(),
+            vec.as_mut_slice().into(),
+            &tag,
+        )
+        .expect("failed to decrypt guest protocol response");
 
         vec
     }

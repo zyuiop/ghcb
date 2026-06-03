@@ -19,7 +19,7 @@ impl<T> OwnedPtr<T> {
     pub fn with_phys_addr(self, phys_addr: PhysAddr) -> OwnedPtrWithPhysAddr<T> {
         OwnedPtrWithPhysAddr {
             ptr: self,
-            phys_addr
+            phys_addr,
         }
     }
 
@@ -50,7 +50,7 @@ impl<T> DerefMut for OwnedPtr<T> {
 
 pub struct OwnedPtrWithPhysAddr<T> {
     ptr: OwnedPtr<T>,
-    phys_addr: PhysAddr
+    phys_addr: PhysAddr,
 }
 
 impl<T> Deref for OwnedPtrWithPhysAddr<T> {
@@ -90,8 +90,6 @@ impl<T> OwnedPtrWithPhysAddr<T> {
     }
 }
 
-unsafe impl<T> Send for OwnedPtrWithPhysAddr<T>
-where T: Send + Sized {}
+unsafe impl<T> Send for OwnedPtrWithPhysAddr<T> where T: Send + Sized {}
 
-unsafe impl<T> Sync for OwnedPtrWithPhysAddr<T>
-where T: Sync + Sized {}
+unsafe impl<T> Sync for OwnedPtrWithPhysAddr<T> where T: Sync + Sized {}

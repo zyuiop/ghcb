@@ -17,19 +17,20 @@ pub enum MalformedGhcbError {
 impl Display for MalformedGhcbError {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
-            MalformedGhcbError::GhcbNotRegistered =>
-                f.write_str("GHCB was not registered (AMD SEV-SNP)"),
-            MalformedGhcbError::InvalidGhcbUsageValue =>
-                f.write_str("GHCB usage field is invalid"),
-            MalformedGhcbError::InvalidScratch =>
-                f.write_str("GHCB scratch address is invalid or cannot be mapped"),
-            MalformedGhcbError::MissingRequiredFields =>
-                f.write_str("Fields required for call were missing in GHCB"),
-            MalformedGhcbError::InvalidEventInput =>
-                f.write_str("NAE event input (ExitInfo values) is invalid"),
-            MalformedGhcbError::InvalidEvent => {
-                f.write_str("NAE exit code is invalid")
+            MalformedGhcbError::GhcbNotRegistered => {
+                f.write_str("GHCB was not registered (AMD SEV-SNP)")
             }
+            MalformedGhcbError::InvalidGhcbUsageValue => f.write_str("GHCB usage field is invalid"),
+            MalformedGhcbError::InvalidScratch => {
+                f.write_str("GHCB scratch address is invalid or cannot be mapped")
+            }
+            MalformedGhcbError::MissingRequiredFields => {
+                f.write_str("Fields required for call were missing in GHCB")
+            }
+            MalformedGhcbError::InvalidEventInput => {
+                f.write_str("NAE event input (ExitInfo values) is invalid")
+            }
+            MalformedGhcbError::InvalidEvent => f.write_str("NAE exit code is invalid"),
             MalformedGhcbError::Reserved(v) => {
                 write!(f, "Error code reserved for future use: {v:x}")
             }

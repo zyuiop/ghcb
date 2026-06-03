@@ -1,11 +1,11 @@
-use bitfield_struct::{bitenum, bitfield};
-use x86_64::addr::PhysAddr;
-use x86_64::structures::paging::{PageSize, PhysFrame, Size2MiB, Size4KiB};
-use crate::protocols::change_page_state::PageStateChangePageSize::{PageSize2MB, PageSize4KB};
 use crate::protocols::GhcbProtocolRequest;
+use crate::protocols::change_page_state::PageStateChangePageSize::{PageSize2MB, PageSize4KB};
 use crate::structures::channel::GhcbRequestExecutor;
 use crate::structures::exit_codes::GhcbExitCode;
 use crate::structures::ghcb_page::GhcbU64Field;
+use bitfield_struct::{bitenum, bitfield};
+use x86_64::addr::PhysAddr;
+use x86_64::structures::paging::{PageSize, PhysFrame, Size2MiB, Size4KiB};
 
 #[bitfield(u64)]
 struct PageStateChangeHeader {
@@ -51,12 +51,12 @@ pub struct PageStateChangeEntry {
 impl PageStateChangeEntry {
     pub fn new_for_frame<S: PageSize>(
         physical_frame: PhysFrame<S>,
-        operation: PageStateChangeOperation
+        operation: PageStateChangeOperation,
     ) -> PageStateChangeEntry {
         let size = match S::SIZE {
             Size4KiB::SIZE => PageSize4KB,
             Size2MiB::SIZE => PageSize2MB,
-            other => panic!("unsupported frame size: 0x{other:x}")
+            other => panic!("unsupported frame size: 0x{other:x}"),
         };
 
         let gfn: u64 = (physical_frame.start_address().as_u64() >> 12) & 0xff_ffff_ffff; // 40 bits
@@ -92,25 +92,19 @@ pub enum ChangePageStateError {
     /// Hypervisor encountered an unknown error at given entry. The LSB of the error are provided
     /// in second argument
     UnknownError(usize, u32),
-    UnknownErrorCode
+    UnknownErrorCode,
 }
 
 impl ChangePageStateError {
     fn with_offset(self, offset: usize) -> Self {
         match self {
-            ChangePageStateError::Interrupted(v) => {
-                ChangePageStateError::Interrupted(offset + v)
-            }
-            ChangePageStateError::InvalidEntry(v) => {
-                ChangePageStateError::InvalidEntry(offset + v)
-            }
+            ChangePageStateError::Interrupted(v) => ChangePageStateError::Interrupted(offset + v),
+            ChangePageStateError::InvalidEntry(v) => ChangePageStateError::InvalidEntry(offset + v),
             ChangePageStateError::UnsmashError(v, e) => {
                 ChangePageStateError::UnsmashError(offset + v, e)
             }
-            ChangePageStateError::RMPOverlap(v) => {
-                ChangePageStateError::RMPOverlap(offset + v)
-            }
-            ChangePageStateError::UnknownError(v, e, ) => {
+            ChangePageStateError::RMPOverlap(v) => ChangePageStateError::RMPOverlap(offset + v),
+            ChangePageStateError::UnknownError(v, e) => {
                 ChangePageStateError::UnknownError(offset + v, e)
             }
             ChangePageStateError::InvalidHeader => ChangePageStateError::InvalidHeader,
@@ -135,24 +129,30 @@ struct PageStateChangeSharedBuffer {
 }
 
 impl ChangePageStateRequest<'_> {
-    fn do_execute_request(self, ghcb: &mut GhcbRequestExecutor) -> Result<(), ChangePageStateError> {
+    fn do_execute_request(
+        self,
+        ghcb: &mut GhcbRequestExecutor,
+    ) -> Result<(), ChangePageStateError> {
         if self.0.is_empty() {
             return Ok(());
         }
 
         assert!(self.0.len() <= MAX_CHANGES_PER_REQUEST);
 
-        let chg_header = PageStateChangeHeader::new()
-            .with_end_entry(self.0.len() as u16);
+        let chg_header = PageStateChangeHeader::new().with_end_entry(self.0.len() as u16);
 
         ghcb.raw().clear();
         ghcb.raw().use_shared_buffer();
 
         // SAFETY: ensure the array is big enough before transmuting it
-        assert_eq!(ghcb.raw().shared_buffer_size(), size_of::<PageStateChangeSharedBuffer>());
+        assert_eq!(
+            ghcb.raw().shared_buffer_size(),
+            size_of::<PageStateChangeSharedBuffer>()
+        );
         let shared_buffer = unsafe {
             // SAFETY: we have confirmed the memory is the correct size
-            ghcb.raw().shared_buffer_raw_mut()
+            ghcb.raw()
+                .shared_buffer_raw_mut()
                 .cast::<PageStateChangeSharedBuffer>()
                 .as_mut()
                 .unwrap()
@@ -172,10 +172,14 @@ impl ChangePageStateRequest<'_> {
 
         // Read the results (only the header matters)
         // We re-make the pointer so that rust does not optimize and assume the memory did not change
-        assert_eq!(ghcb.raw().shared_buffer_size(), size_of::<PageStateChangeSharedBuffer>());
+        assert_eq!(
+            ghcb.raw().shared_buffer_size(),
+            size_of::<PageStateChangeSharedBuffer>()
+        );
         let shared_buffer = unsafe {
             // SAFETY: we have confirmed the memory is the correct size
-            ghcb.raw().shared_buffer_raw_mut()
+            ghcb.raw()
+                .shared_buffer_raw_mut()
                 .cast::<PageStateChangeSharedBuffer>()
                 .as_mut()
                 .unwrap()
@@ -187,7 +191,9 @@ impl ChangePageStateRequest<'_> {
         }
 
         // Interpret the error code.
-        let exit2 = ghcb.raw().get_field_if_valid(GhcbU64Field::SwExitInfo2)
+        let exit2 = ghcb
+            .raw()
+            .get_field_if_valid(GhcbU64Field::SwExitInfo2)
             .expect("failed to retrieve SWExitInfo2");
 
         let cur_entry = shared_buffer.header.cur_entry() as usize;
@@ -241,14 +247,15 @@ impl GhcbProtocolRequest for ChangePageStateRequest<'_> {
         if self.0.len() > MAX_CHANGES_PER_REQUEST {
             for offset in (0..self.0.len()).step_by(MAX_CHANGES_PER_REQUEST) {
                 let end = core::cmp::min(self.0.len(), offset + MAX_CHANGES_PER_REQUEST);
-                ChangePageStateRequest(&self.0[offset..end]).execute_request(ghcb)
+                ChangePageStateRequest(&self.0[offset..end])
+                    .execute_request(ghcb)
                     .map_err(|err| err.with_offset(offset))?;
             }
             return Ok(());
         }
 
         let Err(error) = Self(self.0).do_execute_request(ghcb) else {
-            return Ok(())
+            return Ok(());
         };
 
         // Some errors are recoverable
@@ -284,7 +291,7 @@ impl GhcbProtocolRequest for ChangePageStateRequest<'_> {
                     Ok(())
                 }
             }
-            other => Err(other)
+            other => Err(other),
         }
     }
 }
@@ -313,15 +320,11 @@ mod tests {
             .with_frame_number(gfn)
             .with_current_page(offset);
 
-
         let size = 0;
         let operation = 2;
 
         let expected =
-            (size & 0x1) << 56 |
-                (operation & 0xf) << 52 |
-                (gfn) << 12 |
-                (offset as u64 & 0xfff);
+            (size & 0x1) << 56 | (operation & 0xf) << 52 | (gfn) << 12 | (offset as u64 & 0xfff);
 
         assert_eq!(entry.0, expected);
     }

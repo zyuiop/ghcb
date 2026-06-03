@@ -2,27 +2,39 @@ use crate::protocols::GhcbProtocolRequest;
 use crate::structures::channel::GhcbRequestExecutor;
 use crate::structures::exit_codes::GhcbExitCode;
 use crate::structures::ghcb_page::GhcbU64Field;
+use crate::structures::snp_guest_request::SNPGuestRequest;
 use crate::structures::snp_guest_request::error::GuestProtocolError;
 use crate::structures::snp_guest_request::shared_page::SharedPageAccessor;
-use crate::structures::snp_guest_request::SNPGuestRequest;
 use crate::structures::snp_secrets_page::SecretsPageAccessor;
 
 pub struct SnpGuestRequest<'a, R: SNPGuestRequest, SP: SecretsPageAccessor, T: SharedPageAccessor> {
     request: R,
     secrets_accessor: &'a SP,
     request_page: &'a T,
-    response_page: &'a T
+    response_page: &'a T,
 }
 
-impl<'a, R: SNPGuestRequest, SP: SecretsPageAccessor, T: SharedPageAccessor> SnpGuestRequest<'a, R, SP, T> {
-    pub fn new(request: R, secrets_accessor: &'a SP, request_page: &'a T, response_page: &'a T) -> Self {
+impl<'a, R: SNPGuestRequest, SP: SecretsPageAccessor, T: SharedPageAccessor>
+    SnpGuestRequest<'a, R, SP, T>
+{
+    pub fn new(
+        request: R,
+        secrets_accessor: &'a SP,
+        request_page: &'a T,
+        response_page: &'a T,
+    ) -> Self {
         Self {
-            request, secrets_accessor, request_page, response_page
+            request,
+            secrets_accessor,
+            request_page,
+            response_page,
         }
     }
 }
 
-impl<R: SNPGuestRequest, SP: SecretsPageAccessor, T: SharedPageAccessor> GhcbProtocolRequest for SnpGuestRequest<'_, R, SP, T> {
+impl<R: SNPGuestRequest, SP: SecretsPageAccessor, T: SharedPageAccessor> GhcbProtocolRequest
+    for SnpGuestRequest<'_, R, SP, T>
+{
     type Response = Result<R::ResponseType, GuestProtocolError>;
 
     fn execute_request(self, ghcb: &mut GhcbRequestExecutor) -> Self::Response {
@@ -38,7 +50,8 @@ impl<R: SNPGuestRequest, SP: SecretsPageAccessor, T: SharedPageAccessor> GhcbPro
                     resp_page.phys_addr().as_u64(),
                 );
 
-                let exit2 = ghcb.raw()
+                let exit2 = ghcb
+                    .raw()
                     .get_field_if_valid(GhcbU64Field::SwExitInfo2)
                     .expect("missing SWExitInfo2 field");
 

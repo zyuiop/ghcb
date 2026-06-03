@@ -1,11 +1,11 @@
-use core::slice;
-use core::mem::MaybeUninit;
-use x86_64::VirtAddr;
-use crate::vc_handler::structures::stack_frame::VCInterruptStackFrame;
+use super::opcodes::instruction_prefix;
 use super::opcodes::instruction_prefix::RegisterExtensionPrefix;
-use super::opcodes::{opcode, ExtendedRegister, Register};
-use super::opcodes::{instruction_prefix};
 use super::opcodes::opcode::KnownOpcode;
+use super::opcodes::{ExtendedRegister, Register, opcode};
+use crate::vc_handler::structures::stack_frame::VCInterruptStackFrame;
+use core::mem::MaybeUninit;
+use core::slice;
+use x86_64::VirtAddr;
 
 const MAX_INSTRUCTION_LENGTH: usize = 15;
 
@@ -24,9 +24,8 @@ pub struct InstructionData {
 
     modrm_read: bool,
     displacement_read: bool,
-    immediate_read: bool
+    immediate_read: bool,
 }
-
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum InstructionRepetitionMode {
@@ -38,12 +37,14 @@ pub enum InstructionRepetitionMode {
 
     /// Applied to a compare-string or scan-string operation: repeats the operation until the rCX
     /// register equals 0 or the ZF flag is set to 1
-    RepNZ
+    RepNZ,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum OperandSize {
-    Size16Bits, Size32Bits, Size64Bits
+    Size16Bits,
+    Size32Bits,
+    Size64Bits,
 }
 
 impl InstructionData {
@@ -82,7 +83,9 @@ impl InstructionData {
             if let Some(prefix) = RegisterExtensionPrefix::from_opcode(opcode) {
                 if prefix.contains(RegisterExtensionPrefix::BitW) {
                     if self.operand_size == OperandSize::Size16Bits {
-                        panic!("error while parsing instruction: cannot combine override operand size and REX prefixes for same instruction!")
+                        panic!(
+                            "error while parsing instruction: cannot combine override operand size and REX prefixes for same instruction!"
+                        )
                     }
                     self.operand_size = OperandSize::Size64Bits;
                 }
@@ -95,12 +98,21 @@ impl InstructionData {
 
             // Parse other opcodes
             match opcode {
-                instruction_prefix::OVERRIDE_SEGMENT_CS | instruction_prefix::OVERRIDE_SEGMENT_DS | instruction_prefix::OVERRIDE_SEGMENT_ES | instruction_prefix::OVERRIDE_SEGMENT_FS | instruction_prefix::OVERRIDE_SEGMENT_GS | instruction_prefix::OVERRIDE_SEGMENT_SS => {
+                instruction_prefix::OVERRIDE_SEGMENT_CS
+                | instruction_prefix::OVERRIDE_SEGMENT_DS
+                | instruction_prefix::OVERRIDE_SEGMENT_ES
+                | instruction_prefix::OVERRIDE_SEGMENT_FS
+                | instruction_prefix::OVERRIDE_SEGMENT_GS
+                | instruction_prefix::OVERRIDE_SEGMENT_SS => {
                     /* No OP: In 64-bit mode, we can ignore segment modifiers */
                 }
                 instruction_prefix::LOCK => { /* No OP */ }
-                instruction_prefix::VEX_MAP_1 | instruction_prefix::VEX_MAP_2 | instruction_prefix::XOP => {
-                    panic!("error while parsing instruction: unhandled long mode extended instructions!")
+                instruction_prefix::VEX_MAP_1
+                | instruction_prefix::VEX_MAP_2
+                | instruction_prefix::XOP => {
+                    panic!(
+                        "error while parsing instruction: unhandled long mode extended instructions!"
+                    )
                 }
                 instruction_prefix::OVERRIDE_OPERAND_SIZE => {
                     // Always in 64bits mode
@@ -139,7 +151,10 @@ impl InstructionData {
     /// You must make sure that the instruction you're reading has a ModRM component and that it
     /// has not been extracted yet.
     #[inline]
-    pub unsafe fn parse_modrm_data(&mut self, frame: &VCInterruptStackFrame) -> (ExtendedRegister, VirtAddr) {
+    pub unsafe fn parse_modrm_data(
+        &mut self,
+        frame: &VCInterruptStackFrame,
+    ) -> (ExtendedRegister, VirtAddr) {
         assert_eq!(self.modrm_read, false);
         self.modrm_read = true;
 
@@ -165,11 +180,13 @@ impl InstructionData {
 
         let known_opcode = KnownOpcode::from_bits(opcode);
         if known_opcode == KnownOpcode::UnknownOpcode {
-            panic!("#VC on unhandled opcode {opcode:x}, at eip={:p}!", self.base_ptr);
+            panic!(
+                "#VC on unhandled opcode {opcode:x}, at eip={:p}!",
+                self.base_ptr
+            );
         }
         self.opcode = MaybeUninit::new(known_opcode);
     }
-
 
     #[inline(always)]
     fn next(&mut self) {
@@ -231,9 +248,7 @@ impl InstructionData {
 
     pub unsafe fn current_ptr(&self) -> *const u8 {
         assert!(self.current_offset < MAX_INSTRUCTION_LENGTH);
-        unsafe {
-            self.base_ptr.add(self.current_offset)
-        }
+        unsafe { self.base_ptr.add(self.current_offset) }
     }
 
     pub fn base_ptr(&self) -> *const u8 {
@@ -244,11 +259,11 @@ impl InstructionData {
         unsafe { *self.current_ptr() }
     }
 
-    pub fn repetition_mode(&self) -> Option<& InstructionRepetitionMode> {
+    pub fn repetition_mode(&self) -> Option<&InstructionRepetitionMode> {
         self.repetition_mode.as_ref()
     }
 
-    pub fn rex_prefix(&self) -> Option<& RegisterExtensionPrefix> {
+    pub fn rex_prefix(&self) -> Option<&RegisterExtensionPrefix> {
         self.rex_prefix.as_ref()
     }
 
@@ -260,7 +275,6 @@ impl InstructionData {
         self.address_size
     }
 }
-
 
 #[derive(Debug)]
 struct ModRmInfo(InstructionModRMData, Option<InstructionSIBData>);
@@ -282,8 +296,11 @@ impl ModRmInfo {
     fn get_displacement_bytes(&self) -> u8 {
         match self.0.modrm_mode() {
             ModRmMode::MemoryNoDisplacement
-                if self.0.register_or_memory() == RegisterOrMemory::RelativeToInstruction ||
-                 self.1.as_ref().is_some_and(|sib| sib.base_raw() == 0b101) => 4,
+                if self.0.register_or_memory() == RegisterOrMemory::RelativeToInstruction
+                    || self.1.as_ref().is_some_and(|sib| sib.base_raw() == 0b101) =>
+            {
+                4
+            }
             ModRmMode::MemoryNoDisplacement => 0,
             ModRmMode::Memory8BitsDisplacement => 1,
             ModRmMode::Memory32BitsDisplacement => 4,
@@ -301,16 +318,21 @@ impl ModRmInfo {
     ///
     /// In some cases, this function will read additional bytes from instruction data. For that
     /// reason, it takes ownership of this object and drops it, to avoid multiple reads.
-    pub unsafe fn finalize_rm_from_instruction(self, instruction_data: &mut InstructionData, frame: &VCInterruptStackFrame) -> VirtAddr {
+    pub unsafe fn finalize_rm_from_instruction(
+        self,
+        instruction_data: &mut InstructionData,
+        frame: &VCInterruptStackFrame,
+    ) -> VirtAddr {
         let target = self.0.register_or_memory();
 
         if let RegisterOrMemory::Register(_) = target {
-            unreachable!("unreachable: a page fault was triggered on an operation targetting a register");
+            unreachable!(
+                "unreachable: a page fault was triggered on an operation targetting a register"
+            );
             /* return ExtendedRMOperand::Register(
                 Self::extend_reg(instruction_data.rex_prefix(), target),
             ) */
         };
-
 
         let displacement_bytes = self.get_displacement_bytes();
         let displacement = if self.get_displacement_bytes() > 0 {
@@ -321,11 +343,16 @@ impl ModRmInfo {
             } else if displacement_bytes == 2 {
                 (bytes[1] as u64) << 8 | (bytes[0] as u64)
             } else if displacement_bytes == 4 {
-                (bytes[3] as u64) << 24 | (bytes[2] as u64) << 16 | (bytes[1] as u64) << 8 | (bytes[1] as u64)
+                (bytes[3] as u64) << 24
+                    | (bytes[2] as u64) << 16
+                    | (bytes[1] as u64) << 8
+                    | (bytes[1] as u64)
             } else {
                 panic!("invalid displacement bytes");
             }
-        } else { 0 };
+        } else {
+            0
+        };
 
         let target_addr: u64 = if let Some(sib) = self.1 {
             let base = Self::extend_base_or_rm(instruction_data.rex_prefix(), sib.base());
@@ -354,60 +381,89 @@ impl ModRmInfo {
             }
         } else {
             // Simple mode
-            displacement + match target {
-                RegisterOrMemory::MemoryOffset(reg) => {
-                    Self::extend_base_or_rm(instruction_data.rex_prefix(), reg).get_register(frame)
+            displacement
+                + match target {
+                    RegisterOrMemory::MemoryOffset(reg) => {
+                        Self::extend_base_or_rm(instruction_data.rex_prefix(), reg)
+                            .get_register(frame)
+                    }
+                    RegisterOrMemory::RelativeToInstruction => {
+                        frame.exception.instruction_pointer.as_u64()
+                    }
+                    RegisterOrMemory::Register(_) => unreachable!(),
+                    RegisterOrMemory::SIB => unreachable!(),
                 }
-                RegisterOrMemory::RelativeToInstruction => {
-                    frame.exception.instruction_pointer.as_u64()
-                }
-                RegisterOrMemory::Register(_) => unreachable!(),
-                RegisterOrMemory::SIB => unreachable!(),
-            }
         };
 
         VirtAddr::new(target_addr)
     }
 
-    pub unsafe fn finalize_from_instruction(self, instruction_data: &mut InstructionData, frame: &VCInterruptStackFrame) -> (ExtendedRegister, VirtAddr) {
+    pub unsafe fn finalize_from_instruction(
+        self,
+        instruction_data: &mut InstructionData,
+        frame: &VCInterruptStackFrame,
+    ) -> (ExtendedRegister, VirtAddr) {
         let register = Self::extend_reg(instruction_data.rex_prefix(), self.0.register());
-        let register_or_memory = unsafe { self.finalize_rm_from_instruction(instruction_data, frame) };
+        let register_or_memory =
+            unsafe { self.finalize_rm_from_instruction(instruction_data, frame) };
 
         (register, register_or_memory)
     }
 
     /// Return the register given as parameter, extended if the ExtendModRmReg bit is set in REX
-    fn extend_reg(rex_prefix: Option<&RegisterExtensionPrefix>, base: Register) -> ExtendedRegister {
-        ExtendedRegister(base, rex_prefix.is_some_and(|rex| rex.contains(RegisterExtensionPrefix::ExtendModRmReg)))
+    fn extend_reg(
+        rex_prefix: Option<&RegisterExtensionPrefix>,
+        base: Register,
+    ) -> ExtendedRegister {
+        ExtendedRegister(
+            base,
+            rex_prefix.is_some_and(|rex| rex.contains(RegisterExtensionPrefix::ExtendModRmReg)),
+        )
     }
 
     /// Return the register given as parameter, extended if the ExtendSibIndex bit is set in REX
-    fn extend_sib_index(rex_prefix: Option<&RegisterExtensionPrefix>, base: Register) -> ExtendedRegister {
-        ExtendedRegister(base, rex_prefix.is_some_and(|rex| rex.contains(RegisterExtensionPrefix::ExtendSibIndex)))
+    fn extend_sib_index(
+        rex_prefix: Option<&RegisterExtensionPrefix>,
+        base: Register,
+    ) -> ExtendedRegister {
+        ExtendedRegister(
+            base,
+            rex_prefix.is_some_and(|rex| rex.contains(RegisterExtensionPrefix::ExtendSibIndex)),
+        )
     }
 
     /// Return the register given as parameter, extended if the B bit is set in REX (targets the base in an SIB case, or the R/M register in a non SIB case)
-    fn extend_base_or_rm(rex_prefix: Option<&RegisterExtensionPrefix>, base: Register) -> ExtendedRegister {
-        ExtendedRegister(base, rex_prefix.is_some_and(|rex| rex.contains(RegisterExtensionPrefix::BitB)))
+    fn extend_base_or_rm(
+        rex_prefix: Option<&RegisterExtensionPrefix>,
+        base: Register,
+    ) -> ExtendedRegister {
+        ExtendedRegister(
+            base,
+            rex_prefix.is_some_and(|rex| rex.contains(RegisterExtensionPrefix::BitB)),
+        )
     }
 }
-
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum RegisterOrMemory {
     Register(Register),
     MemoryOffset(Register),
     RelativeToInstruction,
-    SIB
+    SIB,
 }
 
 const REGISTERS: [Register; 8] = [
-    Register::Rax, Register::Rcx, Register::Rdx, Register::Rbx,
-    Register::Rsp, Register::Rbp, Register::Rsi, Register::Rdi
+    Register::Rax,
+    Register::Rcx,
+    Register::Rdx,
+    Register::Rbx,
+    Register::Rsp,
+    Register::Rbp,
+    Register::Rsi,
+    Register::Rdi,
 ];
 
 impl InstructionModRMData {
-
     /// Returns the mode of this modifier
     pub fn modrm_mode(&self) -> ModRmMode {
         MODES[(self.0 >> 6 & 0x3) as usize]
@@ -416,7 +472,7 @@ impl InstructionModRMData {
     /// Returns the register indicated by this modifier
     ///
     /// This may be unused for some instructions
-    pub fn register(&self) -> Register  {
+    pub fn register(&self) -> Register {
         REGISTERS[(self.0 >> 3 & 0x7) as usize]
     }
 
@@ -438,7 +494,6 @@ impl InstructionModRMData {
     }
 }
 
-
 /// See AMD programmers manual volume 3, section 1.4
 #[repr(transparent)]
 #[derive(Debug)]
@@ -453,7 +508,7 @@ impl InstructionSIBData {
             0b01 => 2,
             0b10 => 4,
             0b11 => 8,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
     pub fn index(&self) -> Register {
@@ -473,7 +528,6 @@ impl InstructionSIBData {
     }
 }
 
-
 /// See AMD programmers manual volume 3, section 1.4
 #[repr(transparent)]
 #[derive(Debug)]
@@ -485,12 +539,12 @@ enum ModRmMode {
     MemoryNoDisplacement,
     Memory8BitsDisplacement,
     Memory32BitsDisplacement,
-    Register
+    Register,
 }
 
 const MODES: [ModRmMode; 4] = [
-    ModRmMode::MemoryNoDisplacement, // 00
-    ModRmMode::Memory8BitsDisplacement, // 01
+    ModRmMode::MemoryNoDisplacement,     // 00
+    ModRmMode::Memory8BitsDisplacement,  // 01
     ModRmMode::Memory32BitsDisplacement, // 10
-    ModRmMode::Register, // 11
+    ModRmMode::Register,                 // 11
 ];

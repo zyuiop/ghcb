@@ -1,12 +1,12 @@
+use crate::protocols::GhcbProtocolRequest;
+use crate::structures::ChannelManager;
+use crate::structures::channel::GhcbRequestExecutor;
+use crate::structures::exit_codes::GhcbExitCode;
+use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 use core::ops::Add;
 use core::{ptr, slice};
-use core::marker::PhantomData;
 use x86_64::PhysAddr;
-use crate::protocols::GhcbProtocolRequest;
-use crate::structures::channel::GhcbRequestExecutor;
-use crate::structures::ChannelManager;
-use crate::structures::exit_codes::GhcbExitCode;
 
 pub struct MmioRead<'a> {
     source: PhysAddr,
@@ -68,9 +68,11 @@ impl<'a> MmioRead<'a> {
     ///
     /// The source address and `target.len()` bytes must be valid
     pub unsafe fn new(source_addr: PhysAddr, target: &'a mut [u8]) -> Self {
-        Self { source: source_addr, target }
+        Self {
+            source: source_addr,
+            target,
+        }
     }
-
 }
 
 impl<'a> MmioWrite<'a> {
@@ -78,7 +80,10 @@ impl<'a> MmioWrite<'a> {
     ///
     /// The target address and `source.len()` bytes must be valid
     pub unsafe fn new(source: &'a [u8], target_addr: PhysAddr) -> Self {
-        Self { source, target: target_addr }
+        Self {
+            source,
+            target: target_addr,
+        }
     }
 }
 
@@ -100,18 +105,22 @@ impl GhcbProtocolRequest for MmioWrite<'_> {
                 MmioWrite {
                     target: self.target.add(offset as u64),
                     source: &self.source[offset..end],
-                }.execute_request(ghcb)
+                }
+                .execute_request(ghcb)
             }
             return ();
         }
-
 
         // Copy the data to the buffer
         ghcb.raw().use_shared_buffer();
         ghcb.raw().copy_to_shared_buffer(self.source);
 
         // Issue the call
-        ghcb.checked_vmgexit(GhcbExitCode::MmioWrite, self.target.as_u64(), self.source.len() as u64)
+        ghcb.checked_vmgexit(
+            GhcbExitCode::MmioWrite,
+            self.target.as_u64(),
+            self.source.len() as u64,
+        )
     }
 }
 
@@ -133,14 +142,19 @@ impl GhcbProtocolRequest for MmioRead<'_> {
                 MmioRead {
                     source: self.source.add(offset as u64),
                     target: &mut self.target[offset..end],
-                }.execute_request(ghcb)
+                }
+                .execute_request(ghcb)
             }
             return ();
         }
 
         // Issue the call
         ghcb.raw().use_shared_buffer();
-        ghcb.checked_vmgexit(GhcbExitCode::MmioRead, self.source.as_u64(), self.target.len() as u64);
+        ghcb.checked_vmgexit(
+            GhcbExitCode::MmioRead,
+            self.source.as_u64(),
+            self.target.len() as u64,
+        );
 
         // Copy data from the buffer
         ghcb.raw().copy_from_shared_buffer(self.target);

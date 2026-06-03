@@ -1,11 +1,11 @@
+use crate::structures::exit_codes::GhcbExitCode;
 use core::mem::offset_of;
 use core::ops::Add;
 use core::ptr;
-use volatile::access::ReadOnly;
 use volatile::VolatileRef;
+use volatile::access::ReadOnly;
 use x86_64::PhysAddr;
 use x86_64::structures::paging::{PhysFrame, Size4KiB};
-use crate::structures::exit_codes::GhcbExitCode;
 
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
@@ -53,7 +53,7 @@ pub struct GhcbSaveArea {
 #[repr(usize)]
 enum GhcbOtherField {
     ExitCode = offset_of!(GhcbSaveArea, sw_exit_code),
-    ScratchAddress = offset_of!(GhcbSaveArea, sw_scratch)
+    ScratchAddress = offset_of!(GhcbSaveArea, sw_scratch),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -166,8 +166,7 @@ impl Default for GhcbSaveArea {
     }
 }
 
-const GHCB_SHARED_BUF_SIZE: usize =	2032;
-
+const GHCB_SHARED_BUF_SIZE: usize = 2032;
 
 #[repr(C, align(0x1000))]
 #[derive(Debug, Clone)]
@@ -179,7 +178,7 @@ pub struct GhcbPage {
     shared_buffer: [u8; GHCB_SHARED_BUF_SIZE],
 
     reserved_0xff0: [u8; 10],
-    protocol_version: u16,	/* negotiated SEV-ES/GHCB protocol version */
+    protocol_version: u16, /* negotiated SEV-ES/GHCB protocol version */
     ghcb_usage: u32,
 }
 
@@ -201,7 +200,6 @@ impl GhcbPage {
     pub const fn shared_buffer_size(&self) -> usize {
         size_of_val(&self.shared_buffer)
     }
-
 
     pub fn clear(&mut self) {
         unsafe {
@@ -262,7 +260,6 @@ impl GhcbPage {
     pub unsafe fn copy_from_shared_buffer_raw(&self, target: *mut u8, size: usize) {
         assert!(size <= self.shared_buffer_size());
 
-
         let mut src_u64 = ptr::from_ref(&self.shared_buffer) as *const u64;
         let mut target_u64 = target as *mut u64;
 
@@ -312,7 +309,6 @@ impl GhcbPage {
         }
     }
 
-
     /// ## Safety
     ///
     /// Reads from the returned pointer must be volatile
@@ -335,20 +331,24 @@ impl GhcbPage {
     pub fn use_shared_buffer(&mut self) {
         // let ptr: *const u8 = &self.shared_buffer[0];
         // self.save.sw_scratch = ptr as u64;
-        self.save.set_field_valid(GhcbOtherField::ScratchAddress as usize);
+        self.save
+            .set_field_valid(GhcbOtherField::ScratchAddress as usize);
     }
-
 
     pub fn set_field(&mut self, field: GhcbU64Field, value: u64) {
         unsafe {
-            self.save.offset_mut_ptr::<u64>(field as usize).write_volatile(value);
+            self.save
+                .offset_mut_ptr::<u64>(field as usize)
+                .write_volatile(value);
         }
         self.save.set_field_valid(field as usize);
     }
 
     pub fn set_exit_code(&mut self, ghcb_exit_code: GhcbExitCode) {
         unsafe {
-            self.save.offset_mut_ptr::<GhcbExitCode>(GhcbOtherField::ExitCode as usize).write_volatile(ghcb_exit_code);
+            self.save
+                .offset_mut_ptr::<GhcbExitCode>(GhcbOtherField::ExitCode as usize)
+                .write_volatile(ghcb_exit_code);
         }
         self.save.set_field_valid(GhcbOtherField::ExitCode as usize);
     }
@@ -357,16 +357,15 @@ impl GhcbPage {
         if !self.save.is_field_valid(field as usize) {
             None
         } else {
-            unsafe {
-                Some(self.save.offset_ptr::<u64>(field as usize).read_volatile())
-            }
+            unsafe { Some(self.save.offset_ptr::<u64>(field as usize).read_volatile()) }
         }
     }
 
     pub(super) fn set_phys_address(&mut self, frame: PhysFrame<Size4KiB>) {
         unsafe {
             // Setting the scratch address is "normal" but does not imply that it is valid, so we only set it
-            ptr::from_mut(&mut self.save.sw_scratch).write_volatile(frame.start_address().add(GHCB_SCRATCH_OFFSET).as_u64());
+            ptr::from_mut(&mut self.save.sw_scratch)
+                .write_volatile(frame.start_address().add(GHCB_SCRATCH_OFFSET).as_u64());
         }
     }
 
