@@ -10,7 +10,7 @@ pub mod snp_run_vmpl;
 pub mod terminate;
 pub mod unregister_ghcb_gpa;
 
-use crate::vmgexit;
+use crate::instructions::vmgexit;
 use bitfield_struct::{bitenum, bitfield};
 use x86_64::PhysAddr;
 use x86_64::registers::model_specific::Msr;

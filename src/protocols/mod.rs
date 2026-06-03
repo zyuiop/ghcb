@@ -9,8 +9,8 @@ use crate::structures::channel::GhcbRequestExecutor;
 use crate::structures::ChannelManager;
 use crate::structures::errors::MalformedGhcbError;
 use crate::structures::exit_codes::GhcbExitCode;
-use crate::structures::ghcb_page::{GhcbPage, GhcbU64Field};
-use crate::vmgexit;
+use crate::structures::ghcb_page::GhcbU64Field;
+use crate::instructions::vmgexit;
 
 pub trait GhcbProtocolRequest: Sized {
     type Response;

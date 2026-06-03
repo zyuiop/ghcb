@@ -1,6 +1,6 @@
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
-use x86_64::PhysAddr;
+use x86_64::{PhysAddr, VirtAddr};
 
 pub struct OwnedPtr<T> {
     ptr: NonNull<T>,
@@ -21,6 +21,10 @@ impl<T> OwnedPtr<T> {
             ptr: self,
             phys_addr
         }
+    }
+
+    pub fn virt_addr(&self) -> VirtAddr {
+        VirtAddr::new(self.ptr.addr().get() as u64)
     }
 }
 
@@ -64,12 +68,25 @@ impl<T> DerefMut for OwnedPtrWithPhysAddr<T> {
 }
 
 impl<T> OwnedPtrWithPhysAddr<T> {
+    /// Create an owned pointer from the provided pointer.
+    ///
+    /// ## Safety
+    ///
+    /// The pointer used to create this OwnedPtr must be unique and valid
+    pub unsafe fn new(ptr: NonNull<T>, address: PhysAddr) -> Self {
+        OwnedPtr::new(ptr).with_phys_addr(address)
+    }
+
     pub fn phys_addr(&self) -> PhysAddr {
         self.phys_addr
     }
 
     pub fn forget_phys_addr(self) -> OwnedPtr<T> {
         self.ptr
+    }
+
+    pub fn virt_addr(&self) -> VirtAddr {
+        self.ptr.virt_addr()
     }
 }
 
