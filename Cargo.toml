@@ -39,3 +39,18 @@ rustflags = ["--cfg", "aes_backend=\"soft\""]
 [profile.release.package.aes]
 # There is a weird compiler bug for target x86_64-unknown-none... We must therefore use the soft implementation.
 rustflags = ["--cfg", "aes_backend=\"soft\""]
+
+[lints.rust]
+unused = "deny"
+unused_must_use = "deny"
+unreachable_code = "deny"
+unreachable_patterns = "deny"
+unused_imports = "deny"
+dead_code = "deny"
+irrefutable_let_patterns = "deny"
+unused_unsafe = "deny"
+unused_mut = "deny"
+unused_variables = "deny"
+
+unused_lifetimes = "warn"
+redundant_lifetimes = "warn"

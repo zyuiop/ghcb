@@ -33,15 +33,12 @@ impl<T: ChannelManager> IoIoHandler<T> {
         let operand_16bits = instruction_data.operand_size() == OperandSize::Size16Bits;
 
         let out = match instruction_data.operation() {
-            KnownOpcode::IoInsByte | KnownOpcode::IoInsWords => IoIoRequest::new(
-                (registers.rdx & 0xffff) as u16,
-                unimplemented!("STRING operations unhandled!"),
-            ),
-            KnownOpcode::IoOutsByte | KnownOpcode::IoOutsWords => IoIoRequest::new(
-                (registers.rdx & 0xffff) as u16,
-                unimplemented!("STRING operations unhandled!"),
-            )
-            .with_segment(0x3),
+            KnownOpcode::IoInsByte | KnownOpcode::IoInsWords =>
+                // IoIoRequest::new((registers.rdx & 0xffff) as u16, ???)
+                todo!("STRING operations unhandled!"),
+            KnownOpcode::IoOutsByte | KnownOpcode::IoOutsWords =>
+                // IoIoRequest::new((registers.rdx & 0xffff) as u16, ???).with_segment(0x3),
+                todo!("STRING operations unhandled!"),
             op @ (KnownOpcode::IoInByteImm
             | KnownOpcode::IoInWordsImm
             | KnownOpcode::IoOutByteImm

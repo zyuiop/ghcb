@@ -14,5 +14,5 @@ pub mod vc_handler;
 #[macro_use]
 extern crate bitflags;
 
-#[cfg(feature = "alloc")]
+#[cfg(all(feature = "alloc", feature = "snp"))]
 extern crate alloc;

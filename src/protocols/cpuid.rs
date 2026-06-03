@@ -3,23 +3,11 @@ use crate::structures::channel::GhcbRequestExecutor;
 use crate::structures::exit_codes::GhcbExitCode;
 use crate::structures::ghcb_page::GhcbU64Field;
 use core::arch::x86_64::CpuidResult;
-use x86_64::registers::control::{Cr4, Cr4Flags};
-use x86_64::registers::xcontrol::XCr0;
 
 pub struct CpuIdRequest {
     leaf: u32,
     subleaf: u32,
     xcr0: u64,
-}
-
-fn read_xcr0() -> u64 {
-    let cr4_flags = Cr4::read();
-
-    if cr4_flags.contains(Cr4Flags::OSXSAVE) {
-        XCr0::read_raw()
-    } else {
-        0
-    }
 }
 
 impl CpuIdRequest {

@@ -310,6 +310,7 @@ impl ModRmInfo {
 
     /// Return the register (reg) part of this ModRM byte, possibly extended by the REX byte in the
     /// instruction prefix
+    #[allow(unused)]
     pub fn extended_register(&self, instruction_data: &InstructionData) -> ExtendedRegister {
         Self::extend_reg(instruction_data.rex_prefix(), self.0.register())
     }

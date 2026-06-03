@@ -1,5 +1,5 @@
 use core::error::Error;
-use core::fmt::{Display, Formatter, Write};
+use core::fmt::{Display, Formatter};
 
 #[derive(Debug)]
 #[repr(u64)]

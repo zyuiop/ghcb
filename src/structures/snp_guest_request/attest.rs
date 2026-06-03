@@ -3,6 +3,7 @@ use zerocopy_derive::{FromBytes, Immutable, IntoBytes};
 
 #[derive(Copy, Clone, Debug)]
 #[repr(u8)]
+#[allow(unused)]
 enum KeySelection {
     /// Sign with VLEK if available, otherwise sign with VCEK
     VLEKIfAvailable = 0,

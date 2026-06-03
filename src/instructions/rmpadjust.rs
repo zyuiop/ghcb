@@ -28,9 +28,9 @@ impl RmpAdjustment {
 pub unsafe fn rmpadjust<S: PageSize>(page: Page<S>, adjustment: RmpAdjustment) {
     unsafe {
         let rmpadjust = adjustment.0;
-        let mut guest_addr_ret = page.start_address().as_u64();
+        let guest_addr_ret = page.start_address().as_u64();
         asm!("rmpadjust",
-            inout("rax") guest_addr_ret,
+            in("rax") guest_addr_ret,
             in("rcx") S::SIZE,
             in("rdx") rmpadjust,
         );

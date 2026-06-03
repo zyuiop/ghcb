@@ -1,7 +1,6 @@
 use crate::instructions::rmpadjust::{RmpAdjustment, rmpadjust};
 use crate::sev_status::{SevStatusFlags, SevStatusMsr};
 use crate::util::OwnedPtrWithPhysAddr;
-use bitflags::Flags;
 use core::mem::{MaybeUninit, offset_of};
 use core::ops::BitAnd;
 use core::ptr::NonNull;
@@ -126,52 +125,6 @@ impl VMSaveArea {
         value.snp_features = SnpFeatures::from(SevStatusMsr::read());
 
         value
-    }
-}
-
-impl Default for VMSaveArea {
-    /// WARNING: This method will absolutely destroy your stack
-    fn default() -> Self {
-        // AMD Programmers Manual, vol 2, 14.1.3, Processor Initialization State
-        // See linux kernel: coco/sev/core.c, wakeup_cpu_via_vmgexit (https://github.com/torvalds/linux/blob/master/arch/x86/coco/sev/core.c#L1180)
-
-        Self {
-            cr3: Cr3Flags::empty(),
-            cr0: Cr0Flags::from_bits_retain(0x6000_0010),
-            dr7: Dr7Flags::from_bits_retain(0x400),
-            dr6: Dr6Flags::from_bits_retain(0xffff_0ff0),
-            rflags: RFlags::from_bits_retain(0x2),
-            xcr0: XCr0Flags::from_bits_retain(1),
-            // CR4: only forward MACHINE_CHECK_EXCEPTION
-            cr4: Cr4::read().bitand(Cr4Flags::MACHINE_CHECK_EXCEPTION),
-            efer: EferFlags::SECURE_VIRTUAL_MACHINE_ENABLE,
-
-            gdtr: SegmentRegister {
-                attribute: 0,
-                ..Default::default()
-            },
-            idtr: SegmentRegister {
-                attribute: 0,
-                ..Default::default()
-            },
-            ldtr: SegmentRegister {
-                attribute: CS_ATTR_PRESENT | 0b0010,
-                ..Default::default()
-            },
-            tr: SegmentRegister {
-                attribute: CS_ATTR_PRESENT | 0b0011,
-                ..Default::default()
-            },
-
-            // x87 FP state
-            x87_fcw: 0x0040, // control word
-            x87_ftw: 0x5555, // tag word
-            mx_csr: 0x1f80,
-
-            snp_features: SnpFeatures::from(SevStatusMsr::read()),
-
-            ..Default::default()
-        }
     }
 }
 
