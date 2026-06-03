@@ -36,6 +36,7 @@ impl CPUIDPage {
 }
 
 #[allow(unused)]
+#[derive(Copy, Clone, Debug)]
 pub struct CPUIDFunction {
     eax_in: u32,
     ecx_in: u32,
