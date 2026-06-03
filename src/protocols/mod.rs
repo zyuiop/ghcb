@@ -1,6 +1,8 @@
 pub mod ioio;
 pub mod msr;
 pub mod mmio;
+#[cfg(feature = "snp")]
+pub mod snp_guest_request;
 
 use bitfield_struct::{bitenum, bitfield};
 use crate::structures::channel::GhcbRequestExecutor;

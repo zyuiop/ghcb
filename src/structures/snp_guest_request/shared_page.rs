@@ -3,9 +3,11 @@ use core::mem::MaybeUninit;
 use aes_gcm::{AeadInOut, Aes256Gcm, KeyInit, Nonce, Tag};
 use aes_gcm::aead::consts::{U12, U16};
 use static_assertions::const_assert_eq;
+use x86_64::PhysAddr;
 use zerocopy::IntoBytes;
 use crate::structures::snp_guest_request::{MessageType, SNPAeadAlgorithm, SNPGuestRequest, SNPGuestResponse, SNPHeaderVersion};
 use crate::structures::snp_secrets_page::{CommunicationKeyNumber, SecretsPageAccessor, VMCommunicationKey};
+use crate::util::OwnedPtrWithPhysAddr;
 
 #[repr(C)]
 struct SNPSharedPageHeader {
@@ -185,3 +187,9 @@ impl SNPSharedPage {
 }
 
 const_assert_eq!(size_of::<SNPSharedPage>(), 4096);
+
+pub trait SharedPageAccessor {
+    fn with_shared_page<F, R>(&self, func: F) -> R
+    where
+        F: FnOnce(&mut OwnedPtrWithPhysAddr<SNPSharedPage>) -> R;
+}
