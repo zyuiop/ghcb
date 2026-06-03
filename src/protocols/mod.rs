@@ -1,5 +1,6 @@
 pub mod ioio;
 pub mod msr;
+pub mod mmio;
 
 use bitfield_struct::{bitenum, bitfield};
 use crate::structures::channel::GhcbRequestExecutor;
@@ -12,8 +13,13 @@ use crate::vmgexit;
 pub trait GhcbProtocolRequest: Sized {
     type Response;
 
+    /// Execute this request with an already acquired GHCB
     fn execute_request(self, ghcb: &mut GhcbRequestExecutor) -> Self::Response;
 
+    /// Acquires a GHCB using the passed ChannelManager, and executes
+    /// this request using it.
+    ///
+    /// Warning: if you already have a GHCB, you should use [Self::execute_request] instead.
     fn execute<T: ChannelManager>(self) -> Self::Response {
         let ghcb = T::get_channel();
         ghcb.with_ghcb(|mut ghcb| self.execute_request(&mut ghcb))
