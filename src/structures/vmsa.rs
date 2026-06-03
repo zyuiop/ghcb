@@ -1,10 +1,9 @@
 use crate::instructions::rmpadjust::{RmpAdjustment, rmpadjust};
 use crate::sev_status::{SevStatusFlags, SevStatusMsr};
-use crate::util::{OwnedPtr, OwnedPtrWithPhysAddr};
+use crate::util::OwnedPtrWithPhysAddr;
 use bitflags::Flags;
 use core::mem::{MaybeUninit, offset_of};
 use core::ops::BitAnd;
-use core::ptr;
 use core::ptr::NonNull;
 use static_assertions::const_assert_eq;
 use x86_64::registers::control::{Cr0Flags, Cr3Flags, Cr4, Cr4Flags, EferFlags};
@@ -91,7 +90,7 @@ impl VMSaveArea {
             value.as_mut_ptr().write_bytes(0, 1);
         }
 
-        let mut value = unsafe { value.assume_init_mut() };
+        let value = unsafe { value.assume_init_mut() };
 
         init_sr!(value.es);
         init_sr!(value.cs);
@@ -367,7 +366,7 @@ impl AllocatedVMSaveArea {
         allocated_ptr: *mut MaybeUninit<VMSaveArea>,
         phys_addr: PhysAddr,
     ) -> Self {
-        let ptr = VMSaveArea::init(allocated_ptr.as_mut().unwrap());
+        let ptr = unsafe { VMSaveArea::init(allocated_ptr.as_mut().unwrap()) };
         let ptr = unsafe { Self::new(NonNull::from_mut(ptr), phys_addr) };
 
         // Register/RMPAdjust

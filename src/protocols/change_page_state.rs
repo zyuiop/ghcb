@@ -242,7 +242,7 @@ impl ChangePageStateRequest<'_> {
 impl GhcbProtocolRequest for ChangePageStateRequest<'_> {
     type Response = Result<(), ChangePageStateError>;
 
-    fn execute_request(mut self, ghcb: &mut GhcbRequestExecutor) -> Self::Response {
+    fn execute_request(self, ghcb: &mut GhcbRequestExecutor) -> Self::Response {
         // If the request is too big to be sent in one go, split it
         if self.0.len() > MAX_CHANGES_PER_REQUEST {
             for offset in (0..self.0.len()).step_by(MAX_CHANGES_PER_REQUEST) {

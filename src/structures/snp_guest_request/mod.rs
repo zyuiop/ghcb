@@ -2,8 +2,6 @@ pub mod attest;
 pub mod error;
 pub mod shared_page;
 
-use crate::structures::snp_secrets_page::SecretsPageAccessor;
-use aes_gcm::{AeadInOut, KeyInit};
 use bitfield_struct::bitenum;
 use zerocopy::{FromBytes, IntoBytes};
 

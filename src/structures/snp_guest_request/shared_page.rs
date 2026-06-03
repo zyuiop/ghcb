@@ -10,7 +10,6 @@ use aes_gcm::{AeadInOut, Aes256Gcm, KeyInit, Nonce, Tag};
 use core::mem::MaybeUninit;
 use core::{ptr, slice};
 use static_assertions::const_assert_eq;
-use x86_64::PhysAddr;
 use zerocopy::IntoBytes;
 
 #[repr(C)]
@@ -87,7 +86,7 @@ impl SNPSharedPage {
     ) {
         // Read request as bytes
         let mut request = request;
-        let mut request = request.as_mut_bytes();
+        let request = request.as_mut_bytes();
         let request_size = request.len();
 
         // Make sure the request is not too large
@@ -171,7 +170,7 @@ impl SNPSharedPage {
             "response type cannot fit in page"
         );
 
-        let (key, seqno, payload_len) = self.check_response_header::<SP>(secrets);
+        let (key, _seqno, payload_len) = self.check_response_header::<SP>(secrets);
 
         assert_eq!(
             payload_len,
@@ -184,7 +183,7 @@ impl SNPSharedPage {
             // SAFETY: not safe at this point, but we need to assume it's okay to access the bytes
             MaybeUninit::<R>::uninit().assume_init()
         };
-        let mut output_slice = IntoBytes::as_mut_bytes(&mut output_object);
+        let output_slice = IntoBytes::as_mut_bytes(&mut output_object);
 
         assert_eq!(
             payload_len,
@@ -214,7 +213,7 @@ impl SNPSharedPage {
         &self,
         secrets: &SP,
     ) -> alloc::vec::Vec<u8> {
-        let (key, seqno, payload_len) = self.check_response_header::<SP>(secrets);
+        let (key, _seqno, payload_len) = self.check_response_header::<SP>(secrets);
 
         // Decrypt payload
         let mut vec = alloc::vec::Vec::from(&self.payload[0..payload_len]);

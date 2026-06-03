@@ -1,5 +1,3 @@
-use bitfield_struct::bitenum;
-
 #[derive(Debug, Clone, Copy)]
 #[repr(u64)]
 pub enum GhcbExitCode {

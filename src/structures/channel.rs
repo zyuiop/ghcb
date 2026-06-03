@@ -69,9 +69,11 @@ impl GhcbChannel {
     /// are no longer valid
     pub unsafe fn identity_mapped() -> Option<Self> {
         let current_frame = GhcbMsr::get_current_ghcb_address()?;
-        let assumed_virt_addr =
-            ptr::with_exposed_provenance_mut(current_frame.start_address().as_u64() as usize);
-        Some(Self::new_registered(current_frame, assumed_virt_addr))
+        unsafe {
+            let assumed_virt_addr =
+                ptr::with_exposed_provenance_mut(current_frame.start_address().as_u64() as usize);
+            Some(Self::new_registered(current_frame, assumed_virt_addr))
+        }
     }
 
     /// Initializes a GHCB channel for an already registered GHCB, which address has already been
@@ -93,7 +95,7 @@ impl GhcbChannel {
         }
     }
 
-    unsafe fn get_ghcb_ref(&self) -> GhcbRequestExecutor {
+    unsafe fn get_ghcb_ref(&self) -> GhcbRequestExecutor<'_> {
         let mut_ref = unsafe { self.page.as_mut().unwrap() };
         mut_ref.clear();
         mut_ref.set_phys_address(self.frame_address);
@@ -107,7 +109,9 @@ impl GhcbChannel {
     {
         interrupts::disable();
 
-        f(self.get_ghcb_ref());
+        unsafe {
+            f(self.get_ghcb_ref());
+        }
 
         GhcbMsr::terminate(final_exit_family, final_exit_code);
     }

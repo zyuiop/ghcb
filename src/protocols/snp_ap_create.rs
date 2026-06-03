@@ -60,14 +60,14 @@ impl SnpApCreate {
         }
     }
 
-    pub fn with_operation(mut self, operation: ApOperation) -> Self {
+    pub fn with_operation(self, operation: ApOperation) -> Self {
         Self {
             request: self.request.with_operation(operation),
             ..self
         }
     }
 
-    pub fn with_vmpl(mut self, vmpl: u8) -> Self {
+    pub fn with_vmpl(self, vmpl: u8) -> Self {
         Self {
             request: self.request.with_vmpl(vmpl),
             ..self

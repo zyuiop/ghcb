@@ -1,5 +1,5 @@
 use crate::structures::snp_guest_request::{MessageType, SNPGuestRequest, SNPGuestResponse};
-use zerocopy_derive::{FromBytes, Immutable, IntoBytes, TryFromBytes};
+use zerocopy_derive::{FromBytes, Immutable, IntoBytes};
 
 #[derive(Copy, Clone, Debug)]
 #[repr(u8)]

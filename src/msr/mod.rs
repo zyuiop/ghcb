@@ -78,7 +78,9 @@ impl GhcbMsr {
     /// AMD SEV-SNP
     pub unsafe fn ensure_ghcb_address_is(frame: PhysFrame<Size4KiB>) {
         if Self::get_current_ghcb_address().is_none_or(|f| f != frame) {
-            Self::set_ghcb_address(frame);
+            unsafe {
+                Self::set_ghcb_address(frame);
+            }
         }
     }
 

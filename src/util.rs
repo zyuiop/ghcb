@@ -74,7 +74,7 @@ impl<T> OwnedPtrWithPhysAddr<T> {
     ///
     /// The pointer used to create this OwnedPtr must be unique and valid
     pub unsafe fn new(ptr: NonNull<T>, address: PhysAddr) -> Self {
-        OwnedPtr::new(ptr).with_phys_addr(address)
+        unsafe { OwnedPtr::new(ptr).with_phys_addr(address) }
     }
 
     pub fn phys_addr(&self) -> PhysAddr {

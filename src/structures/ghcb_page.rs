@@ -4,7 +4,6 @@ use core::ops::Add;
 use core::ptr;
 use volatile::VolatileRef;
 use volatile::access::ReadOnly;
-use x86_64::PhysAddr;
 use x86_64::structures::paging::{PhysFrame, Size4KiB};
 
 #[derive(Debug, Clone, Copy)]
