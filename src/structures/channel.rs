@@ -4,6 +4,7 @@ use alloc::boxed::Box;
 use core::fmt::Debug;
 use core::ptr;
 use core::sync::atomic::{AtomicU8, Ordering};
+use x86_64::instructions::interrupts;
 use x86_64::instructions::interrupts::without_interrupts;
 use x86_64::structures::paging::{PhysFrame, Size4KiB};
 use crate::msr::GhcbMsr;
@@ -96,6 +97,8 @@ impl GhcbChannel {
     /// Gets the GHCB and clears it, ignoring any potentially set data inside
     pub unsafe fn with_ghcb_forget<F>(&self, f: F, final_exit_family: u8, final_exit_code: u8) ->!
     where F: FnOnce(GhcbRequestExecutor) {
+        interrupts::disable();
+
         f(self.get_ghcb_ref());
 
         GhcbMsr::terminate(final_exit_family, final_exit_code);

@@ -6,6 +6,7 @@ pub mod snp_guest_request;
 #[cfg(feature = "snp")]
 pub mod snp_ap_create;
 pub mod change_page_state;
+pub mod unsupported;
 
 use bitfield_struct::{bitenum, bitfield};
 use crate::structures::channel::GhcbRequestExecutor;
