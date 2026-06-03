@@ -3,6 +3,8 @@ pub mod msr;
 pub mod mmio;
 #[cfg(feature = "snp")]
 pub mod snp_guest_request;
+#[cfg(feature = "snp")]
+pub mod snp_ap_create;
 
 use bitfield_struct::{bitenum, bitfield};
 use crate::structures::channel::GhcbRequestExecutor;

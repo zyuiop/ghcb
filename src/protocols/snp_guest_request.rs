@@ -3,10 +3,9 @@ use crate::structures::channel::GhcbRequestExecutor;
 use crate::structures::exit_codes::GhcbExitCode;
 use crate::structures::ghcb_page::GhcbU64Field;
 use crate::structures::snp_guest_request::error::GuestProtocolError;
-use crate::structures::snp_guest_request::shared_page::{SNPSharedPage, SharedPageAccessor};
+use crate::structures::snp_guest_request::shared_page::SharedPageAccessor;
 use crate::structures::snp_guest_request::SNPGuestRequest;
 use crate::structures::snp_secrets_page::SecretsPageAccessor;
-use crate::util::OwnedPtrWithPhysAddr;
 
 pub struct SnpGuestRequest<'a, R: SNPGuestRequest, SP: SecretsPageAccessor, T: SharedPageAccessor> {
     request: R,
