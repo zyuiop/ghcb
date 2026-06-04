@@ -10,7 +10,9 @@ use aes_gcm::{AeadInOut, Aes256Gcm, KeyInit, Nonce, Tag};
 use core::mem::MaybeUninit;
 use core::{ptr, slice};
 use static_assertions::const_assert_eq;
+use x86_64::structures::paging::{FrameAllocator, PageTableFlags, Size4KiB};
 use zerocopy::IntoBytes;
+use crate::mapping::SharedMemoryMapper;
 
 #[repr(C)]
 struct SNPSharedPageHeader {
@@ -79,6 +81,7 @@ impl SNPSharedPage {
     pub fn clear(&mut self) {
         unsafe { ptr::from_mut(&mut self.header).write_bytes(0, 1) }
     }
+
     pub fn write_request<SP: SecretsPageAccessor, R: SNPGuestRequest>(
         &mut self,
         secrets: &SP,
@@ -232,10 +235,28 @@ impl SNPSharedPage {
     }
 }
 
+pub type SNPAllocatedSharedPage = OwnedPtrWithPhysAddr<SNPSharedPage>;
+
 const_assert_eq!(size_of::<SNPSharedPage>(), 4096);
 
 pub trait SharedPageAccessor {
     fn with_shared_page<F, R>(&self, func: F) -> R
     where
-        F: FnOnce(&mut OwnedPtrWithPhysAddr<SNPSharedPage>) -> R;
+        F: FnOnce(&mut SNPAllocatedSharedPage) -> R;
+}
+
+impl SNPAllocatedSharedPage {
+    pub fn allocate<A: FrameAllocator<Size4KiB>, M: SharedMemoryMapper<Size4KiB>>(allocator: &mut A, mapper: &mut M) -> Self {
+        let frame = allocator.allocate_frame().expect("could not allocate frame for shared page!");
+        let ptr = mapper.map_frame_make_shared(frame, PageTableFlags::WRITABLE | PageTableFlags::PRESENT | PageTableFlags::NO_EXECUTE)
+            .expect("could not map shared page");
+
+        let ptr = ptr.as_mut_ptr::<SNPSharedPage>();
+        let reference = unsafe {
+            ptr.write_bytes(0, 1); // zeroise allocated memory
+            ptr.as_mut().unwrap()
+        };
+
+        Self::new(reference, frame.start_address())
+    }
 }

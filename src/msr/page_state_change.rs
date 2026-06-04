@@ -44,7 +44,14 @@ impl MsrRequest for PageStateChangeRequest {
 
 /// The response for a page state change request. Should be converted to a Result and used.
 #[must_use]
-pub struct PageStateChangeResponse(Option<u64>);
+#[derive(Debug)]
+pub struct PageStateChangeResponse(pub Option<u64>);
+
+impl PageStateChangeResponse {
+    pub fn is_successful(&self) -> bool {
+        self.0.is_none()
+    }
+}
 
 impl MsrResponse for PageStateChangeResponse {
     fn info() -> GhcbMsrInfo {
