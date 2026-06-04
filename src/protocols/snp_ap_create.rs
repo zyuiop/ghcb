@@ -48,7 +48,7 @@ impl SnpApCreate {
     ///
     /// - `vmsa` is a previously allocated and initialized VMSA. Use [AllocatedVMSaveArea::from_uninit] after
     /// allocating memory to initialize it.
-    /// - `cpu_number` is the id of the CPU to initialize
+    /// - `apic_id` is the APIC ID of the CPU to initialize
     /// - `start_jump_addr` is the address at which the CPU will jump (will be written in the provided VMSA)
     pub fn new(vmsa: AllocatedVMSaveArea, apic_id: u32, start_jump_addr: VirtAddr) -> Self {
         Self {

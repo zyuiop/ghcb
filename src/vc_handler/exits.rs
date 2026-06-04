@@ -4,7 +4,7 @@ use bitfield_struct::bitenum;
 
 #[bitenum]
 #[repr(i64)]
-#[derive()]
+#[derive(Debug, Copy, Clone)]
 pub enum SvmInterceptCode {
     /// Read of CR0
     Cr0Read = 0x0,

@@ -1,10 +1,11 @@
 use crate::instructions::rmpadjust::{RmpAdjustment, rmpadjust};
 use crate::sev_status::{SevStatusFlags, SevStatusMsr};
-use crate::util::OwnedPtrWithPhysAddr;
+use crate::ptr::OwnedPtrWithPhysAddr;
 use core::mem::{MaybeUninit, offset_of};
 use core::ops::BitAnd;
+use core::ptr;
 use core::ptr::NonNull;
-use static_assertions::const_assert_eq;
+use static_assertions::{const_assert, const_assert_eq};
 use x86_64::registers::control::{Cr0Flags, Cr3Flags, Cr4, Cr4Flags, EferFlags};
 use x86_64::registers::debug::{Dr6Flags, Dr7Flags};
 use x86_64::registers::rflags::RFlags;
@@ -76,55 +77,56 @@ impl From<SevStatusFlags> for SnpFeatures {
 
 macro_rules! init_sr {
     ($sr: expr) => {
-        $sr.limit = 0xffff;
-        $sr.attribute = CS_ATTR_PRESENT | 0b10010;
+        (&raw mut $sr.limit).write(0xffff);
+        (&raw mut $sr.attribute).write(CS_ATTR_PRESENT | 0b10010);
     };
 }
 
 impl VMSaveArea {
     /// Recommended way to declare a VMSaveArea. Prepare a pointer, then simply call init on it.
-    pub fn init(value: &mut MaybeUninit<Self>) -> &mut Self {
+    pub fn init(uninit: &mut MaybeUninit<Self>) -> &mut Self {
         unsafe {
             // Zero memory before doing anything
-            value.as_mut_ptr().write_bytes(0, 1);
+            ptr::from_mut(uninit).write_bytes(0, 1);
         }
 
-        let value = unsafe { value.assume_init_mut() };
+        let raw = uninit.as_mut_ptr();
 
-        init_sr!(value.es);
-        init_sr!(value.cs);
-        init_sr!(value.ss);
-        init_sr!(value.ds);
-        init_sr!(value.fs);
-        init_sr!(value.gs);
+        unsafe {
+            init_sr!((*raw).es);
+            init_sr!((*raw).cs);
+            init_sr!((*raw).ss);
+            init_sr!((*raw).ds);
+            init_sr!((*raw).fs);
+            init_sr!((*raw).gs);
 
-        value.gdtr.limit = 0xffff;
-        value.idtr.limit = 0xffff;
-        value.ldtr.limit = 0xffff;
-        value.ldtr.attribute = CS_ATTR_PRESENT | 0b0010;
-        value.tr.limit = 0xffff;
-        value.tr.attribute = CS_ATTR_PRESENT | 0b0011;
+            (&raw mut (*raw).gdtr.limit).write(0xfff);
 
-        value.gdtr.limit = 0xffff;
-        value.gdtr.attribute = CS_ATTR_PRESENT | 0b10010;
+            (&raw mut (*raw).gdtr.limit).write(0xffff);
+            (&raw mut (*raw).idtr.limit).write(0xffff);
+            (&raw mut (*raw).ldtr.limit).write(0xffff);
+            (&raw mut (*raw).ldtr.attribute).write(CS_ATTR_PRESENT | 0b0010);
+            (&raw mut (*raw).tr.limit).write(0xffff);
+            (&raw mut (*raw).tr.attribute).write(CS_ATTR_PRESENT | 0b0011);
+            (&raw mut (*raw).gdtr.limit).write(0xffff);
+            (&raw mut (*raw).gdtr.attribute).write(CS_ATTR_PRESENT | 0b10010);
+            (&raw mut (*raw).cr3).write(Cr3Flags::empty());
+            (&raw mut (*raw).cr0).write(Cr0Flags::from_bits_retain(0x6000_0010));
+            (&raw mut (*raw).dr7).write(Dr7Flags::from_bits_retain(0x400));
+            (&raw mut (*raw).dr6).write(Dr6Flags::from_bits_retain(0xffff_0ff0));
+            (&raw mut (*raw).rflags).write(RFlags::from_bits_retain(0x2));
+            (&raw mut (*raw).xcr0).write(XCr0Flags::from_bits_retain(1));
+            (&raw mut (*raw).cr4).write(Cr4::read().bitand(Cr4Flags::MACHINE_CHECK_EXCEPTION));             // CR4: only forward MACHINE_CHECK_EXCEPTION
+            (&raw mut (*raw).efer).write(EferFlags::SECURE_VIRTUAL_MACHINE_ENABLE);
+            (&raw mut (*raw).x87_fcw).write(0x0040);
+            (&raw mut (*raw).x87_ftw).write(0x5555);
+            (&raw mut (*raw).mx_csr).write(0x1f80);
+            (&raw mut (*raw).snp_features).write(SnpFeatures::from(SevStatusMsr::read()));
+        }
 
-        value.cr3 = Cr3Flags::empty();
-        value.cr0 = Cr0Flags::from_bits_retain(0x6000_0010);
-        value.dr7 = Dr7Flags::from_bits_retain(0x400);
-        value.dr6 = Dr6Flags::from_bits_retain(0xffff_0ff0);
-        value.rflags = RFlags::from_bits_retain(0x2);
-        value.xcr0 = XCr0Flags::from_bits_retain(1);
-
-        // CR4: only forward MACHINE_CHECK_EXCEPTION
-        value.cr4 = Cr4::read().bitand(Cr4Flags::MACHINE_CHECK_EXCEPTION);
-        value.efer = EferFlags::SECURE_VIRTUAL_MACHINE_ENABLE;
-
-        value.x87_fcw = 0x0040;
-        value.x87_ftw = 0x5555;
-        value.mx_csr = 0x1f80;
-        value.snp_features = SnpFeatures::from(SevStatusMsr::read());
-
-        value
+        unsafe {
+            uninit.assume_init_mut()
+        }
     }
 }
 
@@ -152,7 +154,7 @@ impl VMSaveArea {
     }
 }
 
-#[repr(C)]
+#[repr(C, align(0x1000))]
 #[derive(Debug)]
 pub struct VMSaveArea {
     es: SegmentRegister,
@@ -305,6 +307,7 @@ const_assert_eq!(offset_of!(VMSaveArea, dbg_extn_cfg), 0x298);
 const_assert_eq!(offset_of!(VMSaveArea, spec_ctrl), 0x2E0);
 const_assert_eq!(offset_of!(VMSaveArea, rbp), 0x328);
 const_assert_eq!(offset_of!(VMSaveArea, guest_exitinfo1), 0x390);
+const_assert!(size_of::<VMSaveArea>() <= 0x1000);
 
 pub type AllocatedVMSaveArea = OwnedPtrWithPhysAddr<VMSaveArea>;
 
@@ -316,11 +319,14 @@ impl AllocatedVMSaveArea {
     /// The pointer must be valid and point to memory big enough to accomodate a VMSaveArea.
     /// The pointer must be unique.
     pub unsafe fn from_uninit(
-        allocated_ptr: *mut MaybeUninit<VMSaveArea>,
+        mut allocated_ptr: NonNull<MaybeUninit<VMSaveArea>>,
         phys_addr: PhysAddr,
     ) -> Self {
-        let ptr = unsafe { VMSaveArea::init(allocated_ptr.as_mut().unwrap()) };
-        let ptr = unsafe { Self::new(NonNull::from_mut(ptr), phys_addr) };
+        let ptr = unsafe {
+            allocated_ptr.as_mut()
+        };
+
+        let ptr = Self::new(VMSaveArea::init(ptr), phys_addr);
 
         // Register/RMPAdjust
         unsafe {

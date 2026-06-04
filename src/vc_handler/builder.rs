@@ -1,6 +1,15 @@
 #[macro_export]
 macro_rules! make_vc_handler {
     ($channel_manager:ty, $target_name:ident; $($exit_code:pat => $handler:expr),*) => {
+        $crate::make_vc_handler!($channel_manager, $target_name; $($exit_code => $handler),*; pre_handling (_a, _b) {}; post_handling (_a, _b) {});
+    };
+    ($channel_manager:ty, $target_name:ident; $($exit_code:pat => $handler:expr),*; pre_handling ($pre_handling_stack: ident, $pre_handling_exit_code: ident) $pre_handling:block) => {
+        $crate::make_vc_handler!($channel_manager, $target_name; $($exit_code => $handler),*; pre_handling ($pre_handling_stack, $pre_handling_exit_code) $pre_handling; post_handling (_a, _b) {});
+    };
+    ($channel_manager:ty, $target_name:ident; $($exit_code:pat => $handler:expr),*; post_handling ($post_handling_stack: ident, $post_handling_exit_code: ident) $post_handling:block) => {
+        $crate::make_vc_handler!($channel_manager, $target_name; $($exit_code => $handler),*; pre_handling (_a, _b) {}; post_handling ($post_handling_stack, $post_handling_exit_code) $post_handling);
+    };
+    ($channel_manager:ty, $target_name:ident; $($exit_code:pat => $handler:expr),*; pre_handling ($pre_handling_stack: ident, $pre_handling_exit_code: ident) $pre_handling:block; post_handling ($post_handling_stack: ident, $post_handling_exit_code: ident) $post_handling:block) => {
         use $crate::vc_handler::VcHandler as _;
 
         #[unsafe(naked)]
@@ -76,13 +85,14 @@ macro_rules! make_vc_handler {
         extern "C" fn __inner_vc_error(
             stack_frame: &mut $crate::vc_handler::structures::stack_frame::VCInterruptStackFrame
         ) {
-            #[cfg(feature = "logging")]
-            log::debug!("VC# HANDLE: {stack_frame:#?}");
-
-            // increment_irq_counter(29);
-            let mut instruction = $crate::vc_handler::structures::instruction_parser::InstructionData::new(stack_frame.exception.instruction_pointer.as_ptr());
             let exit_code = $crate::vc_handler::exits::SvmInterceptCode::from_bits(stack_frame.error_code as i64);
+            {
+                let $pre_handling_stack = &stack_frame;
+                let $pre_handling_exit_code = exit_code;
+                $pre_handling;
+            }
 
+            let mut instruction = $crate::vc_handler::structures::instruction_parser::InstructionData::new(stack_frame.exception.instruction_pointer.as_ptr());
             match exit_code {
                 $(
                     $exit_code => {
@@ -96,8 +106,11 @@ macro_rules! make_vc_handler {
 
             stack_frame.exception.instruction_pointer += instruction.size() as u64;
 
-            #[cfg(feature = "logging")]
-            log::debug!("VC# handle done - return address: {:#?}", stack_frame.exception.instruction_pointer);
+            {
+                let $post_handling_stack = &stack_frame;
+                let $post_handling_exit_code = exit_code;
+                $post_handling;
+            }
         }
     }
 }

@@ -4,7 +4,7 @@ use crate::structures::snp_guest_request::{
 use crate::structures::snp_secrets_page::{
     CommunicationKeyNumber, SecretsPageAccessor, VMCommunicationKey,
 };
-use crate::util::OwnedPtrWithPhysAddr;
+use crate::ptr::OwnedPtrWithPhysAddr;
 use aes_gcm::aead::consts::{U12, U16};
 use aes_gcm::{AeadInOut, Aes256Gcm, KeyInit, Nonce, Tag};
 use core::mem::MaybeUninit;
