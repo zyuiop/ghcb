@@ -1,6 +1,7 @@
 use aes_gcm::Key;
 use aes_gcm::aes::Aes256;
 use static_assertions::const_assert_eq;
+use zerocopy_derive::FromZeros;
 
 pub trait SecretsPageAccessor {
     fn with_secrets_page<F, R>(&self, func: F) -> R
@@ -10,7 +11,7 @@ pub trait SecretsPageAccessor {
 
 pub type VMCommunicationKey = Key<Aes256>;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, FromZeros)]
 #[repr(u8)]
 pub enum CommunicationKeyNumber {
     VmPck0 = 0,

@@ -4,22 +4,29 @@ pub mod shared_page;
 
 use bitfield_struct::bitenum;
 use zerocopy::{FromBytes, IntoBytes};
+use zerocopy_derive::FromZeros;
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, FromZeros)]
 #[repr(u8)]
 pub enum SNPAeadAlgorithm {
+    #[allow(unused)]
+    None = 0,
     AesGcm = 1,
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, FromZeros)]
 #[repr(u8)]
 enum SNPHeaderVersion {
+    #[allow(unused)]
+    None = 0,
     Version1 = 1,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, FromZeros)]
 #[repr(u8)]
 pub enum MessageType {
+    #[allow(unused)]
+    None = 0,
     CpuidRequest = 1,
     CpuidResponse = 2,
     KeyRequest = 3,
@@ -40,7 +47,7 @@ pub enum MessageType {
     TscInfoResponse = 18,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, FromZeros)]
 #[repr(u32)]
 #[bitenum]
 pub enum GuestProtocolStatusCode {

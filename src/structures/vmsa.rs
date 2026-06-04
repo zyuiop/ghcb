@@ -2,17 +2,16 @@ use crate::instructions::rmpadjust::{RmpAdjustment, rmpadjust};
 use crate::sev_status::{SevStatusFlags, SevStatusMsr};
 use crate::ptr::OwnedPtrWithPhysAddr;
 use core::mem::{MaybeUninit, offset_of};
-use core::ops::BitAnd;
+use core::ops::{BitAnd, DerefMut};
 use core::ptr;
-use core::ptr::NonNull;
 use static_assertions::{const_assert, const_assert_eq};
 use x86_64::registers::control::{Cr0Flags, Cr3Flags, Cr4, Cr4Flags, EferFlags};
 use x86_64::registers::debug::{Dr6Flags, Dr7Flags};
 use x86_64::registers::rflags::RFlags;
 use x86_64::registers::xcontrol::XCr0Flags;
-use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, Page, PageSize, PageTableFlags, PhysFrame, Size2MiB, Size4KiB};
-use x86_64::{PhysAddr, VirtAddr};
-use crate::mapping::MemoryMapper;
+use x86_64::structures::paging::{Page, PageSize, PageTableFlags, Size2MiB, Size4KiB};
+use x86_64::VirtAddr;
+use crate::mapping::PhysicalAllocator;
 
 #[derive(Copy, Clone, Debug)]
 #[repr(C, packed)]
@@ -85,7 +84,7 @@ macro_rules! init_sr {
 
 impl VMSaveArea {
     /// Recommended way to declare a VMSaveArea. Prepare a pointer, then simply call init on it.
-    pub fn init(uninit: &mut MaybeUninit<Self>) -> &mut Self {
+    pub fn init(uninit: &mut MaybeUninit<Self>) {
         unsafe {
             // Zero memory before doing anything
             ptr::from_mut(uninit).write_bytes(0, 1);
@@ -123,10 +122,6 @@ impl VMSaveArea {
             (&raw mut (*raw).x87_ftw).write(0x5555);
             (&raw mut (*raw).mx_csr).write(0x1f80);
             (&raw mut (*raw).snp_features).write(SnpFeatures::from(SevStatusMsr::read()));
-        }
-
-        unsafe {
-            uninit.assume_init_mut()
         }
     }
 }
@@ -310,72 +305,43 @@ const_assert_eq!(offset_of!(VMSaveArea, rbp), 0x328);
 const_assert_eq!(offset_of!(VMSaveArea, guest_exitinfo1), 0x390);
 const_assert!(size_of::<VMSaveArea>() <= 0x1000);
 
-pub type AllocatedVMSaveArea = OwnedPtrWithPhysAddr<VMSaveArea>;
+pub type AllocatedVMSaveArea<A> = OwnedPtrWithPhysAddr<VMSaveArea, A>;
 
-impl AllocatedVMSaveArea {
-    /// Initializes given pointer as a VMSaveArea page and registers it (RMPAdjust)
-    ///
-    /// ## Safety
-    ///
-    /// The pointer must be valid and point to memory big enough to accomodate a VMSaveArea.
-    /// The pointer must be unique.
-    pub unsafe fn from_uninit(
-        mut allocated_ptr: NonNull<MaybeUninit<VMSaveArea>>,
-        phys_addr: PhysAddr,
-    ) -> Self {
-        let ptr = unsafe {
-            allocated_ptr.as_mut()
-        };
-
-        let ptr = Self::new(VMSaveArea::init(ptr), phys_addr);
-
-        // Register/RMPAdjust
-        unsafe {
-            rmpadjust::<Size4KiB>(
-                Page::from_start_address(ptr.virt_addr()).unwrap(),
-                RmpAdjustment::new_vmsa(1),
-            )
-        }
-
-        ptr
-    }
-
-    fn allocate_not_2mib_aligned_frame<A: FrameAllocator<Size4KiB> + FrameDeallocator<Size4KiB>>(alloc: &mut A) -> PhysFrame<Size4KiB> {
-        const_assert!(size_of::<MaybeUninit<VMSaveArea>>() <= Size4KiB::SIZE as usize);
-
-        let phys_frame = alloc.allocate_frame()
-            .expect("failed to allocate physical memory for VMSA!");
-
-        if phys_frame.start_address().is_aligned(Size2MiB::SIZE) {
-            // There is a bug where we must not have a 2Mib aligned page
-            // We use the technique from the linux kernel to solve this:
-            // We allocate two pages and free the first one which MAY be 2M/1G aligned
-            let new_phys = Self::allocate_not_2mib_aligned_frame(alloc);
-            unsafe {
-                alloc.deallocate_frame(phys_frame);
-            }
-
-            new_phys
-        } else {
-            phys_frame
-        }
-    }
-
-    pub fn allocate<A: FrameAllocator<Size4KiB> + FrameDeallocator<Size4KiB>, MM: MemoryMapper<Size4KiB>>(alloc: &mut A, mapper: &mut MM) -> Self {
-        let frame = Self::allocate_not_2mib_aligned_frame(alloc);
-
+impl<Alloc: PhysicalAllocator> AllocatedVMSaveArea<Alloc> {
+    pub fn allocate() -> Self {
         let mut flags = PageTableFlags::empty()
             .union(PageTableFlags::NO_EXECUTE | PageTableFlags::WRITABLE);
         flags.set_encrypted(true);
 
-        let virt = mapper.map_frame(frame, flags)
-            .expect("failed to map VMSA frame");
+        let vmsa = Alloc::allocate_owned::<VMSaveArea>(flags)
+            .expect("Could not allocate memory for VMSA!");
 
-        let ptr = virt.as_mut_ptr::<MaybeUninit<VMSaveArea>>();
-        let virt = NonNull::new(ptr).expect("zero address returned");
+        let mut vmsa = if vmsa.phys_addr().is_aligned(Size2MiB::SIZE) {
+            // There is a bug where we must not have a 2Mib aligned page
+            // We use the technique from the linux kernel to solve this:
+            // We allocate two pages and free the first one which MAY be 2M/1G aligned
+            Alloc::allocate_owned::<VMSaveArea>(flags)
+                .expect("Could not allocate memory for VMSA!")
+            // the previous VMSA will be freed when dropped
+        } else {
+            vmsa
+        };
+
+        // Initialize
+        VMSaveArea::init(vmsa.deref_mut());
+
+        let vmsa = unsafe {
+            // SAFETY: we have initialized the VMSA
+            vmsa.assume_init()
+        };
 
         unsafe {
-            Self::from_uninit(virt, frame.start_address())
+            rmpadjust::<Size4KiB>(
+                Page::from_start_address(vmsa.virt_addr()).unwrap(),
+                RmpAdjustment::new_vmsa(1),
+            )
         }
+
+        vmsa
     }
 }

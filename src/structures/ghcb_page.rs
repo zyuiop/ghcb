@@ -5,8 +5,9 @@ use core::ptr;
 use volatile::VolatileRef;
 use volatile::access::ReadOnly;
 use x86_64::structures::paging::{PhysFrame, Size4KiB};
+use zerocopy_derive::FromZeros;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, FromZeros)]
 #[repr(C)]
 pub struct GhcbSaveArea {
     _reserved_0x0: [u8; 203],
@@ -168,7 +169,7 @@ impl Default for GhcbSaveArea {
 const GHCB_SHARED_BUF_SIZE: usize = 2032;
 
 #[repr(C, align(0x1000))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, FromZeros)]
 pub struct GhcbPage {
     save: GhcbSaveArea,
 

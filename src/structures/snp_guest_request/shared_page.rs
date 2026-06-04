@@ -10,11 +10,13 @@ use aes_gcm::{AeadInOut, Aes256Gcm, KeyInit, Nonce, Tag};
 use core::mem::MaybeUninit;
 use core::{ptr, slice};
 use static_assertions::const_assert_eq;
-use x86_64::structures::paging::{FrameAllocator, PageTableFlags, Size4KiB};
+use x86_64::structures::paging::PageTableFlags;
 use zerocopy::IntoBytes;
-use crate::mapping::SharedMemoryMapper;
+use zerocopy_derive::FromZeros;
+use crate::mapping::PhysicalAllocator;
 
 #[repr(C)]
+#[derive(FromZeros)]
 struct SNPSharedPageHeader {
     /// Authentication tag for this message
     authentication_tag: [u8; 0x20], // 32 bytes authentication tag
@@ -70,6 +72,7 @@ impl SNPSharedPageHeader {
 }
 
 #[repr(C, align(0x1000))]
+#[derive(FromZeros)]
 pub struct SNPSharedPage {
     header: SNPSharedPageHeader,
     payload: [u8; PAYLOAD_LEN],
@@ -235,28 +238,23 @@ impl SNPSharedPage {
     }
 }
 
-pub type SNPAllocatedSharedPage = OwnedPtrWithPhysAddr<SNPSharedPage>;
+pub type SNPAllocatedSharedPage<A> = OwnedPtrWithPhysAddr<SNPSharedPage, A>;
 
 const_assert_eq!(size_of::<SNPSharedPage>(), 4096);
 
 pub trait SharedPageAccessor {
+    type Alloc: PhysicalAllocator;
+
     fn with_shared_page<F, R>(&self, func: F) -> R
     where
-        F: FnOnce(&mut SNPAllocatedSharedPage) -> R;
+        F: FnOnce(&mut SNPAllocatedSharedPage<Self::Alloc>) -> R;
 }
 
-impl SNPAllocatedSharedPage {
-    pub fn allocate<A: FrameAllocator<Size4KiB>, M: SharedMemoryMapper<Size4KiB>>(allocator: &mut A, mapper: &mut M) -> Self {
-        let frame = allocator.allocate_frame().expect("could not allocate frame for shared page!");
-        let ptr = mapper.map_frame_make_shared(frame, PageTableFlags::WRITABLE | PageTableFlags::PRESENT | PageTableFlags::NO_EXECUTE)
-            .expect("could not map shared page");
+impl<A: PhysicalAllocator> SNPAllocatedSharedPage<A> {
+    pub fn allocate() -> Self {
+        let allocated: OwnedPtrWithPhysAddr<MaybeUninit<SNPSharedPage>, A> = A::allocate_owned(PageTableFlags::WRITABLE | PageTableFlags::PRESENT | PageTableFlags::NO_EXECUTE)
+            .expect("failed to allocate shared page");
 
-        let ptr = ptr.as_mut_ptr::<SNPSharedPage>();
-        let reference = unsafe {
-            ptr.write_bytes(0, 1); // zeroise allocated memory
-            ptr.as_mut().unwrap()
-        };
-
-        Self::new(reference, frame.start_address())
+        allocated.to_init()
     }
 }

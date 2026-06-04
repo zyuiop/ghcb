@@ -1,3 +1,4 @@
+use core::mem::ManuallyDrop;
 use crate::protocols::GhcbProtocolRequest;
 use crate::structures::channel::GhcbRequestExecutor;
 use crate::structures::exit_codes::GhcbExitCode;
@@ -5,6 +6,7 @@ use crate::structures::ghcb_page::GhcbU64Field;
 use crate::structures::vmsa::AllocatedVMSaveArea;
 use bitfield_struct::{bitenum, bitfield};
 use x86_64::VirtAddr;
+use crate::mapping::PhysicalAllocator;
 
 #[bitenum]
 #[repr(u16)]
@@ -36,13 +38,13 @@ struct ApRequest {
     apic_id: u32,
 }
 
-pub struct SnpApCreate {
-    vmsa: AllocatedVMSaveArea,
+pub struct SnpApCreate<A: PhysicalAllocator> {
+    vmsa: ManuallyDrop<AllocatedVMSaveArea<A>>,
     request: ApRequest,
     start_jump_addr: VirtAddr,
 }
 
-impl SnpApCreate {
+impl<A: PhysicalAllocator> SnpApCreate<A> {
     /// Request to initialize a new processor. The processor will wake up and jump to [start_jump_addr] when
     /// this request is executed.
     ///
@@ -50,14 +52,19 @@ impl SnpApCreate {
     /// allocating memory to initialize it.
     /// - `apic_id` is the APIC ID of the CPU to initialize
     /// - `start_jump_addr` is the address at which the CPU will jump (will be written in the provided VMSA)
-    pub fn new(vmsa: AllocatedVMSaveArea, apic_id: u32, start_jump_addr: VirtAddr) -> Self {
+    pub fn new(vmsa: AllocatedVMSaveArea<A>, apic_id: u32, start_jump_addr: VirtAddr) -> Self {
         Self {
-            vmsa,
+            // Don't drop the VMSA when the request is finished!
+            vmsa: ManuallyDrop::new(vmsa),
             request: ApRequest::new()
                 .with_apic_id(apic_id)
                 .with_operation(ApOperation::CreateAddImmediate),
             start_jump_addr,
         }
+    }
+
+    pub fn new_alloc(apic_id: u32, start_jump_addr: VirtAddr) -> Self {
+        Self::new(AllocatedVMSaveArea::allocate(), apic_id, start_jump_addr)
     }
 
     pub fn with_operation(self, operation: ApOperation) -> Self {
@@ -75,7 +82,7 @@ impl SnpApCreate {
     }
 }
 
-impl GhcbProtocolRequest for SnpApCreate {
+impl<A: PhysicalAllocator> GhcbProtocolRequest for SnpApCreate<A> {
     type Response = ();
 
     fn execute_request(mut self, ghcb: &mut GhcbRequestExecutor) -> Self::Response {

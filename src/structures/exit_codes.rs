@@ -1,6 +1,10 @@
-#[derive(Debug, Clone, Copy)]
+use zerocopy_derive::FromZeros;
+
+#[derive(Debug, Clone, Copy, FromZeros)]
 #[repr(u64)]
 pub enum GhcbExitCode {
+    None = 0x00,
+
     DR7Read = 0x27,
     DR7Write = 0x37,
 

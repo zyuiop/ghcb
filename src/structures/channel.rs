@@ -8,8 +8,8 @@ use core::ptr;
 use core::sync::atomic::{AtomicU8, Ordering};
 use x86_64::instructions::interrupts;
 use x86_64::instructions::interrupts::without_interrupts;
-use x86_64::structures::paging::{FrameAllocator, PageTableFlags, PhysFrame, Size4KiB};
-use crate::mapping::SharedMemoryMapper;
+use x86_64::structures::paging::{PageTableFlags, PhysFrame, Size4KiB};
+use crate::mapping::PhysicalAllocator;
 
 pub struct GhcbChannel {
     /// The location in memory of the GHCB page
@@ -87,23 +87,21 @@ impl GhcbChannel {
     /// # Safety
     ///
     /// Any previous GHCB will become unregistered and must no longer be used (unless re-registered).
-    pub unsafe fn allocate_register<A: FrameAllocator<Size4KiB>, M: SharedMemoryMapper<Size4KiB>>(protocol_version: u16, allocator: &mut A, mapper: &mut M) -> Self {
+    pub unsafe fn allocate_register<A: PhysicalAllocator>(protocol_version: u16) -> Self {
         let info = GhcbMsr::get_info();
         if info.min_proto() > protocol_version || info.max_proto() < protocol_version {
             panic!("GHCB version negotiation failed: wrong protocol version (expected: {protocol_version}, acceptable range: {}..{})", info.min_proto(), info.max_proto());
         }
 
-        let frame = allocator.allocate_frame().expect("could not allocate frame for GHCB!");
-        let ghcb_ptr = mapper.map_frame_make_shared(frame, PageTableFlags::WRITABLE | PageTableFlags::PRESENT | PageTableFlags::NO_EXECUTE)
-            .expect("could not map GHCB frame!");
+        let mut allocated = A::allocate_owned::<GhcbPage>(PageTableFlags::WRITABLE | PageTableFlags::PRESENT | PageTableFlags::NO_EXECUTE)
+            .expect("could not allocate frame for GHCB!")
+            .to_init();
+        allocated.set_protocol_version(protocol_version);
 
-        let ghcb_ptr = ghcb_ptr.as_mut_ptr::<GhcbPage>();
-
-        unsafe {
-            // Zero the claimed memory
-            ghcb_ptr.write_bytes(0, 1);
-            ghcb_ptr.as_mut().unwrap().set_protocol_version(protocol_version);
-        }
+        let (ghcb_ptr, frame) = unsafe {
+            allocated.leak()
+        };
+        let frame = PhysFrame::from_start_address(frame).unwrap();
 
         // Register the GHCB
         unsafe {
