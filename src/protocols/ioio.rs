@@ -1,3 +1,4 @@
+use core::marker::PhantomData;
 use crate::protocols::GhcbProtocolRequest;
 use crate::structures::ChannelManager;
 use crate::structures::channel::GhcbRequestExecutor;
@@ -9,6 +10,58 @@ pub struct IoIoRequest<'a> {
     io_port: u16,
     segment_number: u8,
     operation: IoIoOperation<'a>,
+}
+
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+pub struct IoIoPort<T> {
+    port: u16,
+    _phantom: PhantomData<T>,
+}
+
+impl<T> IoIoPort<T> {
+    #[inline(always)]
+    pub const fn new(port: u16) -> IoIoPort<T> {
+        Self { port, _phantom: PhantomData }
+    }
+}
+
+impl IoIoPort<u8> {
+    pub fn read(&self, ghcb: &mut GhcbRequestExecutor) -> u8 {
+        let mut output = 0;
+        IoIoRequest::new(self.port, IoIoOperation::ByteIn(&mut output)).execute_request(ghcb);
+        output
+    }
+
+    pub fn write(&self, ghcb: &mut GhcbRequestExecutor, byte: u8) {
+        IoIoRequest::new(self.port, IoIoOperation::ByteOut(byte)).execute_request(ghcb);
+    }
+}
+
+
+impl IoIoPort<u16> {
+    pub fn read(&self, ghcb: &mut GhcbRequestExecutor) -> u16 {
+        let mut output = 0;
+        IoIoRequest::new(self.port, IoIoOperation::WordIn(&mut output)).execute_request(ghcb);
+        output
+    }
+
+    pub fn write(&self, ghcb: &mut GhcbRequestExecutor, byte: u16) {
+        IoIoRequest::new(self.port, IoIoOperation::WordOut(byte)).execute_request(ghcb);
+    }
+}
+
+
+impl IoIoPort<u32> {
+    pub fn read(&self, ghcb: &mut GhcbRequestExecutor) -> u32 {
+        let mut output = 0;
+        IoIoRequest::new(self.port, IoIoOperation::DblWordIn(&mut output)).execute_request(ghcb);
+        output
+    }
+
+    pub fn write(&self, ghcb: &mut GhcbRequestExecutor, byte: u32) {
+        IoIoRequest::new(self.port, IoIoOperation::DblWordOut(byte)).execute_request(ghcb);
+    }
 }
 
 impl<'a> IoIoRequest<'a> {

@@ -58,6 +58,11 @@ impl GhcbRequestExecutor<'_> {
 }
 
 impl GhcbChannel {
+    /// The location in memory of the GHCB page
+    pub fn phys_frame(&self) -> PhysFrame<Size4KiB> {
+        self.frame_address
+    }
+
     /// Initializes a GHCB channel for an already existing GHCB, which address is already set in
     /// the MSR.
     /// This is useful to re-use the EFI GHCB, for example.
@@ -103,17 +108,18 @@ impl GhcbChannel {
     }
 
     /// Gets the GHCB and clears it, ignoring any potentially set data inside
-    pub unsafe fn with_ghcb_forget<F>(&self, f: F, final_exit_family: u8, final_exit_code: u8) -> !
-    where
-        F: FnOnce(GhcbRequestExecutor),
+    ///
+    /// ## Safety
+    ///
+    /// This will break any other GHCB usage. Applications using this should exit after use.
+    pub unsafe fn with_ghcb_force<F>(&self, f: F)
+    where F: FnOnce(GhcbRequestExecutor),
     {
         interrupts::disable();
 
         unsafe {
             f(self.get_ghcb_ref());
         }
-
-        GhcbMsr::terminate(final_exit_family, final_exit_code);
     }
 
     pub fn with_ghcb<F, R>(&self, f: F) -> R

@@ -15,14 +15,16 @@ aes-gcm = { version = "0.11.0-rc.4", optional = true, default-features = false, 
 zerocopy-derive = "0.9.0-alpha.0"
 zerocopy = "0.9.0-alpha.0"
 log = { version = "0.4.31", optional = true }
+embedded-io = { version = "0.7.1", optional = true }
 
 [features]
-default = ["snp", "alloc", "vc-handler"]
+default = ["snp", "alloc", "vc-handler", "console"]
 snp = ["dep:aes-gcm"]
 alloc = []
 multi-ghcb = ["alloc"]
 vc-handler = []
 logging = ["dep:log"]
+console = ["dep:embedded-io"]
 
 [profile.dev.package.polyval]
 # There is a weird compiler bug for target x86_64-unknown-none... We must therefore use the soft implementation.

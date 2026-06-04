@@ -11,6 +11,9 @@ pub mod util;
 #[cfg(feature = "vc-handler")]
 pub mod vc_handler;
 
+#[cfg(feature = "console")]
+pub mod serial;
+
 #[macro_use]
 extern crate bitflags;
 

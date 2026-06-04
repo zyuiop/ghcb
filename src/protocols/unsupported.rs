@@ -18,7 +18,7 @@ impl GhcbProtocolRequest for UnsupportedExit {
 
 /// Terminates the VM with a custom exit code
 pub fn exit_error<T: ChannelManager>(code: u64) {
-    unsafe { T::get_channel().with_ghcb_forget(|mut ghcb| ghcb.terminate(code), 0, 0) }
+    unsafe { T::get_channel().with_ghcb_force(|mut ghcb| ghcb.terminate(code)) }
 }
 
 impl GhcbRequestExecutor<'_> {
