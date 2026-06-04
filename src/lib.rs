@@ -13,6 +13,7 @@ pub mod vc_handler;
 
 #[cfg(feature = "console")]
 pub mod serial;
+pub mod mapping;
 
 #[macro_use]
 extern crate bitflags;

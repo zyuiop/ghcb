@@ -10,8 +10,9 @@ use x86_64::registers::control::{Cr0Flags, Cr3Flags, Cr4, Cr4Flags, EferFlags};
 use x86_64::registers::debug::{Dr6Flags, Dr7Flags};
 use x86_64::registers::rflags::RFlags;
 use x86_64::registers::xcontrol::XCr0Flags;
-use x86_64::structures::paging::{Page, Size4KiB};
+use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, Page, PageSize, PageTableFlags, PhysFrame, Size2MiB, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
+use crate::mapping::MemoryMapper;
 
 #[derive(Copy, Clone, Debug)]
 #[repr(C, packed)]
@@ -337,5 +338,44 @@ impl AllocatedVMSaveArea {
         }
 
         ptr
+    }
+
+    fn allocate_not_2mib_aligned_frame<A: FrameAllocator<Size4KiB> + FrameDeallocator<Size4KiB>>(alloc: &mut A) -> PhysFrame<Size4KiB> {
+        const_assert!(size_of::<MaybeUninit<VMSaveArea>>() <= Size4KiB::SIZE as usize);
+
+        let phys_frame = alloc.allocate_frame()
+            .expect("failed to allocate physical memory for VMSA!");
+
+        if phys_frame.start_address().is_aligned(Size2MiB::SIZE) {
+            // There is a bug where we must not have a 2Mib aligned page
+            // We use the technique from the linux kernel to solve this:
+            // We allocate two pages and free the first one which MAY be 2M/1G aligned
+            let new_phys = Self::allocate_not_2mib_aligned_frame(alloc);
+            unsafe {
+                alloc.deallocate_frame(phys_frame);
+            }
+
+            new_phys
+        } else {
+            phys_frame
+        }
+    }
+
+    pub fn allocate<A: FrameAllocator<Size4KiB> + FrameDeallocator<Size4KiB>, MM: MemoryMapper<Size4KiB>>(alloc: &mut A, mapper: &mut MM) -> Self {
+        let frame = Self::allocate_not_2mib_aligned_frame(alloc);
+
+        let mut flags = PageTableFlags::empty()
+            .union(PageTableFlags::NO_EXECUTE | PageTableFlags::WRITABLE);
+        flags.set_encrypted(true);
+
+        let virt = mapper.map_frame(frame, flags)
+            .expect("failed to map VMSA frame");
+
+        let ptr = virt.as_mut_ptr::<MaybeUninit<VMSaveArea>>();
+        let virt = NonNull::new(ptr).expect("zero address returned");
+
+        unsafe {
+            Self::from_uninit(virt, frame.start_address())
+        }
     }
 }
