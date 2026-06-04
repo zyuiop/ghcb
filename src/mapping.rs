@@ -1,9 +1,9 @@
-use crate::msr::page_state_change::{PageStateChangeRequest, PageStateOperation};
 use crate::msr::GhcbMsr;
+use crate::msr::page_state_change::{PageStateChangeRequest, PageStateOperation};
 use crate::ptr::OwnedPtrWithPhysAddr;
 use core::mem::MaybeUninit;
-use x86_64::structures::paging::{PageSize, PageTableFlags, PhysFrame, Size4KiB};
 use x86_64::VirtAddr;
+use x86_64::structures::paging::{PageSize, PageTableFlags, PhysFrame, Size4KiB};
 
 /// # Safety
 ///
@@ -18,8 +18,13 @@ pub unsafe trait PhysicalAllocator {
     unsafe fn deallocate(addr: VirtAddr);
 
     /// Allocates a new frame and page, zeroes it, and wraps it in an OwnedPtr
-    fn allocate_owned<T>(flags: PageTableFlags) -> Option<OwnedPtrWithPhysAddr<MaybeUninit<T>, Self>> {
-        assert!(size_of::<T>() <= Size4KiB::SIZE as usize, "object too big to allocate");
+    fn allocate_owned<T>(
+        flags: PageTableFlags,
+    ) -> Option<OwnedPtrWithPhysAddr<MaybeUninit<T>, Self>> {
+        assert!(
+            size_of::<T>() <= Size4KiB::SIZE as usize,
+            "object too big to allocate"
+        );
 
         let (frame, virt) = Self::allocate(flags)?;
 
@@ -31,16 +36,19 @@ pub unsafe trait PhysicalAllocator {
         if !flags.is_encrypted() {
             // Tell the hypervisor to make the frame shared
             let result = unsafe {
-                GhcbMsr::execute(
-                    PageStateChangeRequest::create(frame, PageStateOperation::AssignShared)
-                )
+                GhcbMsr::execute(PageStateChangeRequest::create(
+                    frame,
+                    PageStateOperation::AssignShared,
+                ))
             };
 
             if !result.is_successful() {
-                panic!("failed to share page with hypervisor: {}", result.0.unwrap())
+                panic!(
+                    "failed to share page with hypervisor: {}",
+                    result.0.unwrap()
+                )
             }
         }
-
 
         Some(unsafe {
             // SAFETY: we have verified the

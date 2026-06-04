@@ -3,9 +3,9 @@ use crate::vc_handler::structures::instruction_parser::InstructionData;
 use crate::vc_handler::structures::stack_frame::VCInterruptStackFrame;
 use x86_64::registers::control::Cr2;
 #[cfg(feature = "logging")]
-use x86_64::structures::paging::mapper::TranslateResult;
-#[cfg(feature = "logging")]
 use x86_64::structures::paging::Translate;
+#[cfg(feature = "logging")]
+use x86_64::structures::paging::mapper::TranslateResult;
 
 #[cfg(feature = "logging")]
 pub struct RmpInvalidHandler<'a, T: Translate>(&'a T);
@@ -31,7 +31,6 @@ impl VcHandler for RmpInvalidHandler {
 #[cfg(feature = "logging")]
 impl<'a, T: Translate> VcHandler for RmpInvalidHandler<'a, T> {
     fn handle(&self, _: &mut VCInterruptStackFrame, _: &mut InstructionData) {
-
         // See AMD Programmer's Manual vol. 2 (doc id 24593), section §15.36.10
         // > A failure of the page validation check results in a #VC with error code PAGE_NOT_VALIDATED
         // > (0x404). The faulting guest virtual address is saved to CR2 when this error occurs.

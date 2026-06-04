@@ -1,17 +1,17 @@
 use crate::instructions::rmpadjust::{RmpAdjustment, rmpadjust};
-use crate::sev_status::{SevStatusFlags, SevStatusMsr};
+use crate::mapping::PhysicalAllocator;
 use crate::ptr::OwnedPtrWithPhysAddr;
+use crate::sev_status::{SevStatusFlags, SevStatusMsr};
 use core::mem::{MaybeUninit, offset_of};
 use core::ops::{BitAnd, DerefMut};
 use core::ptr;
 use static_assertions::{const_assert, const_assert_eq};
+use x86_64::VirtAddr;
 use x86_64::registers::control::{Cr0Flags, Cr3Flags, Cr4, Cr4Flags, EferFlags};
 use x86_64::registers::debug::{Dr6Flags, Dr7Flags};
 use x86_64::registers::rflags::RFlags;
 use x86_64::registers::xcontrol::XCr0Flags;
 use x86_64::structures::paging::{Page, PageSize, PageTableFlags, Size2MiB, Size4KiB};
-use x86_64::VirtAddr;
-use crate::mapping::PhysicalAllocator;
 
 #[derive(Copy, Clone, Debug)]
 #[repr(C, packed)]
@@ -116,7 +116,7 @@ impl VMSaveArea {
             (&raw mut (*raw).dr6).write(Dr6Flags::from_bits_retain(0xffff_0ff0));
             (&raw mut (*raw).rflags).write(RFlags::from_bits_retain(0x2));
             (&raw mut (*raw).xcr0).write(XCr0Flags::from_bits_retain(1));
-            (&raw mut (*raw).cr4).write(Cr4::read().bitand(Cr4Flags::MACHINE_CHECK_EXCEPTION));             // CR4: only forward MACHINE_CHECK_EXCEPTION
+            (&raw mut (*raw).cr4).write(Cr4::read().bitand(Cr4Flags::MACHINE_CHECK_EXCEPTION)); // CR4: only forward MACHINE_CHECK_EXCEPTION
             (&raw mut (*raw).efer).write(EferFlags::SECURE_VIRTUAL_MACHINE_ENABLE);
             (&raw mut (*raw).x87_fcw).write(0x0040);
             (&raw mut (*raw).x87_ftw).write(0x5555);
@@ -309,8 +309,8 @@ pub type AllocatedVMSaveArea<A> = OwnedPtrWithPhysAddr<VMSaveArea, A>;
 
 impl<Alloc: PhysicalAllocator> AllocatedVMSaveArea<Alloc> {
     pub fn allocate() -> Self {
-        let mut flags = PageTableFlags::empty()
-            .union(PageTableFlags::NO_EXECUTE | PageTableFlags::WRITABLE);
+        let mut flags =
+            PageTableFlags::empty().union(PageTableFlags::NO_EXECUTE | PageTableFlags::WRITABLE);
         flags.set_encrypted(true);
 
         let vmsa = Alloc::allocate_owned::<VMSaveArea>(flags)
@@ -320,8 +320,7 @@ impl<Alloc: PhysicalAllocator> AllocatedVMSaveArea<Alloc> {
             // There is a bug where we must not have a 2Mib aligned page
             // We use the technique from the linux kernel to solve this:
             // We allocate two pages and free the first one which MAY be 2M/1G aligned
-            Alloc::allocate_owned::<VMSaveArea>(flags)
-                .expect("Could not allocate memory for VMSA!")
+            Alloc::allocate_owned::<VMSaveArea>(flags).expect("Could not allocate memory for VMSA!")
             // the previous VMSA will be freed when dropped
         } else {
             vmsa

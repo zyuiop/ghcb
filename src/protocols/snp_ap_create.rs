@@ -1,12 +1,12 @@
-use core::mem::ManuallyDrop;
+use crate::mapping::PhysicalAllocator;
 use crate::protocols::GhcbProtocolRequest;
 use crate::structures::channel::GhcbRequestExecutor;
 use crate::structures::exit_codes::GhcbExitCode;
 use crate::structures::ghcb_page::GhcbU64Field;
 use crate::structures::vmsa::AllocatedVMSaveArea;
 use bitfield_struct::{bitenum, bitfield};
+use core::mem::ManuallyDrop;
 use x86_64::VirtAddr;
-use crate::mapping::PhysicalAllocator;
 
 #[bitenum]
 #[repr(u16)]

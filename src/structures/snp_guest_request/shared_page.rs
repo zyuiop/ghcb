@@ -1,10 +1,11 @@
+use crate::mapping::PhysicalAllocator;
+use crate::ptr::OwnedPtrWithPhysAddr;
 use crate::structures::snp_guest_request::{
     MessageType, SNPAeadAlgorithm, SNPGuestRequest, SNPGuestResponse, SNPHeaderVersion,
 };
 use crate::structures::snp_secrets_page::{
     CommunicationKeyNumber, SecretsPageAccessor, VMCommunicationKey,
 };
-use crate::ptr::OwnedPtrWithPhysAddr;
 use aes_gcm::aead::consts::{U12, U16};
 use aes_gcm::{AeadInOut, Aes256Gcm, KeyInit, Nonce, Tag};
 use core::mem::MaybeUninit;
@@ -13,7 +14,6 @@ use static_assertions::const_assert_eq;
 use x86_64::structures::paging::PageTableFlags;
 use zerocopy::IntoBytes;
 use zerocopy_derive::FromZeros;
-use crate::mapping::PhysicalAllocator;
 
 #[repr(C)]
 #[derive(FromZeros)]
@@ -252,8 +252,10 @@ pub trait SharedPageAccessor {
 
 impl<A: PhysicalAllocator> SNPAllocatedSharedPage<A> {
     pub fn allocate() -> Self {
-        let allocated: OwnedPtrWithPhysAddr<MaybeUninit<SNPSharedPage>, A> = A::allocate_owned(PageTableFlags::WRITABLE | PageTableFlags::PRESENT | PageTableFlags::NO_EXECUTE)
-            .expect("failed to allocate shared page");
+        let allocated: OwnedPtrWithPhysAddr<MaybeUninit<SNPSharedPage>, A> = A::allocate_owned(
+            PageTableFlags::WRITABLE | PageTableFlags::PRESENT | PageTableFlags::NO_EXECUTE,
+        )
+        .expect("failed to allocate shared page");
 
         allocated.to_init()
     }

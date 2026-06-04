@@ -34,11 +34,15 @@ impl<T: ChannelManager> IoIoHandler<T> {
 
         let out = match instruction_data.operation() {
             KnownOpcode::IoInsByte | KnownOpcode::IoInsWords =>
-                // IoIoRequest::new((registers.rdx & 0xffff) as u16, ???)
-                todo!("STRING operations unhandled!"),
+            // IoIoRequest::new((registers.rdx & 0xffff) as u16, ???)
+            {
+                todo!("STRING operations unhandled!")
+            }
             KnownOpcode::IoOutsByte | KnownOpcode::IoOutsWords =>
-                // IoIoRequest::new((registers.rdx & 0xffff) as u16, ???).with_segment(0x3),
-                todo!("STRING operations unhandled!"),
+            // IoIoRequest::new((registers.rdx & 0xffff) as u16, ???).with_segment(0x3),
+            {
+                todo!("STRING operations unhandled!")
+            }
             op @ (KnownOpcode::IoInByteImm
             | KnownOpcode::IoInWordsImm
             | KnownOpcode::IoOutByteImm

@@ -1,10 +1,10 @@
-use core::marker::PhantomData;
 use crate::protocols::GhcbProtocolRequest;
 use crate::structures::ChannelManager;
 use crate::structures::channel::GhcbRequestExecutor;
 use crate::structures::exit_codes::GhcbExitCode;
 use crate::structures::ghcb_page::GhcbU64Field;
 use bitfield_struct::bitfield;
+use core::marker::PhantomData;
 
 pub struct IoIoRequest<'a> {
     io_port: u16,
@@ -22,7 +22,10 @@ pub struct IoIoPort<T> {
 impl<T> IoIoPort<T> {
     #[inline(always)]
     pub const fn new(port: u16) -> IoIoPort<T> {
-        Self { port, _phantom: PhantomData }
+        Self {
+            port,
+            _phantom: PhantomData,
+        }
     }
 }
 
@@ -38,7 +41,6 @@ impl IoIoPort<u8> {
     }
 }
 
-
 impl IoIoPort<u16> {
     pub fn read(&self, ghcb: &mut GhcbRequestExecutor) -> u16 {
         let mut output = 0;
@@ -46,11 +48,10 @@ impl IoIoPort<u16> {
         output
     }
 
-    pub fn write(&self, ghcb: &mut GhcbRequestExecutor, byte: u16) {
+    pub fn write(&mut self, ghcb: &mut GhcbRequestExecutor, byte: u16) {
         IoIoRequest::new(self.port, IoIoOperation::WordOut(byte)).execute_request(ghcb);
     }
 }
-
 
 impl IoIoPort<u32> {
     pub fn read(&self, ghcb: &mut GhcbRequestExecutor) -> u32 {

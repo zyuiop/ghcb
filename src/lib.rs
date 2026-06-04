@@ -4,16 +4,16 @@
 pub mod instructions;
 pub mod msr;
 pub mod protocols;
+pub mod ptr;
 pub mod sev_status;
 pub mod structures;
-pub mod ptr;
 
 #[cfg(feature = "vc-handler")]
 pub mod vc_handler;
 
+pub mod mapping;
 #[cfg(feature = "console")]
 pub mod serial;
-pub mod mapping;
 
 #[macro_use]
 extern crate bitflags;

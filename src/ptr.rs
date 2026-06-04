@@ -1,10 +1,10 @@
+use crate::mapping::PhysicalAllocator;
 use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
 use core::mem::{ManuallyDrop, MaybeUninit};
 use core::ops::{Deref, DerefMut};
 use x86_64::{PhysAddr, VirtAddr};
 use zerocopy::FromZeros;
-use crate::mapping::PhysicalAllocator;
 
 pub struct OwnedPtrWithPhysAddr<T, Alloc: PhysicalAllocator + ?Sized> {
     phys_addr: PhysAddr,
@@ -15,7 +15,11 @@ pub struct OwnedPtrWithPhysAddr<T, Alloc: PhysicalAllocator + ?Sized> {
 
 impl<T, A: PhysicalAllocator + ?Sized> Debug for OwnedPtrWithPhysAddr<T, A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "OwnedPtrWithPhysAddr {{ ptr: {:p}, phys_addr: {:?} }}", self.ptr, self.phys_addr)
+        write!(
+            f,
+            "OwnedPtrWithPhysAddr {{ ptr: {:p}, phys_addr: {:?} }}",
+            self.ptr, self.phys_addr
+        )
     }
 }
 
@@ -51,7 +55,9 @@ impl<T, A: PhysicalAllocator + ?Sized> OwnedPtrWithPhysAddr<MaybeUninit<T>, A> {
     /// The allocation must be zeroed to ensure [Self::to_init] works
     pub(crate) unsafe fn from_alloc(virt: VirtAddr, phys: PhysAddr) -> Self {
         Self {
-            ptr: virt.as_mut_ptr(), phys_addr: phys, _alloc: PhantomData
+            ptr: virt.as_mut_ptr(),
+            phys_addr: phys,
+            _alloc: PhantomData,
         }
     }
 }
@@ -73,7 +79,7 @@ impl<T, A: PhysicalAllocator + ?Sized> OwnedPtrWithPhysAddr<MaybeUninit<T>, A> {
         OwnedPtrWithPhysAddr::<T, A> {
             _alloc: PhantomData,
             ptr: me.ptr.cast::<T>(),
-            phys_addr: me.phys_addr
+            phys_addr: me.phys_addr,
         }
     }
 }
@@ -97,6 +103,12 @@ impl<T, A: PhysicalAllocator + ?Sized> OwnedPtrWithPhysAddr<T, A> {
     }
 }
 
-unsafe impl<T, A: PhysicalAllocator + ?Sized> Send for OwnedPtrWithPhysAddr<T, A> where T: Send + Sized {}
+unsafe impl<T, A: PhysicalAllocator + ?Sized> Send for OwnedPtrWithPhysAddr<T, A> where
+    T: Send + Sized
+{
+}
 
-unsafe impl<T, A: PhysicalAllocator + ?Sized> Sync for OwnedPtrWithPhysAddr<T, A> where T: Sync + Sized {}
+unsafe impl<T, A: PhysicalAllocator + ?Sized> Sync for OwnedPtrWithPhysAddr<T, A> where
+    T: Sync + Sized
+{
+}

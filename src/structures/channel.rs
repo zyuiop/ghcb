@@ -1,3 +1,4 @@
+use crate::mapping::PhysicalAllocator;
 use crate::msr::GhcbMsr;
 use crate::protocols::GhcbProtocolRequest;
 use crate::structures::ghcb_page::GhcbPage;
@@ -9,7 +10,6 @@ use core::sync::atomic::{AtomicU8, Ordering};
 use x86_64::instructions::interrupts;
 use x86_64::instructions::interrupts::without_interrupts;
 use x86_64::structures::paging::{PageTableFlags, PhysFrame, Size4KiB};
-use crate::mapping::PhysicalAllocator;
 
 pub struct GhcbChannel {
     /// The location in memory of the GHCB page
@@ -90,23 +90,26 @@ impl GhcbChannel {
     pub unsafe fn allocate_register<A: PhysicalAllocator>(protocol_version: u16) -> Self {
         let info = GhcbMsr::get_info();
         if info.min_proto() > protocol_version || info.max_proto() < protocol_version {
-            panic!("GHCB version negotiation failed: wrong protocol version (expected: {protocol_version}, acceptable range: {}..{})", info.min_proto(), info.max_proto());
+            panic!(
+                "GHCB version negotiation failed: wrong protocol version (expected: {protocol_version}, acceptable range: {}..{})",
+                info.min_proto(),
+                info.max_proto()
+            );
         }
 
-        let mut allocated = A::allocate_owned::<GhcbPage>(PageTableFlags::WRITABLE | PageTableFlags::PRESENT | PageTableFlags::NO_EXECUTE)
-            .expect("could not allocate frame for GHCB!")
-            .to_init();
+        let mut allocated = A::allocate_owned::<GhcbPage>(
+            PageTableFlags::WRITABLE | PageTableFlags::PRESENT | PageTableFlags::NO_EXECUTE,
+        )
+        .expect("could not allocate frame for GHCB!")
+        .to_init();
         allocated.set_protocol_version(protocol_version);
 
-        let (ghcb_ptr, frame) = unsafe {
-            allocated.leak()
-        };
+        let (ghcb_ptr, frame) = unsafe { allocated.leak() };
         let frame = PhysFrame::from_start_address(frame).unwrap();
 
         // Register the GHCB
         unsafe {
-            GhcbMsr::register_and_set_ghcb(frame)
-                .expect("failed to register allocated GHCB");
+            GhcbMsr::register_and_set_ghcb(frame).expect("failed to register allocated GHCB");
 
             GhcbChannel::new_registered(frame, ghcb_ptr)
         }
@@ -144,7 +147,8 @@ impl GhcbChannel {
     ///
     /// This will break any other GHCB usage. Applications using this should exit after use.
     pub unsafe fn with_ghcb_force<F>(&self, f: F)
-    where F: FnOnce(GhcbRequestExecutor),
+    where
+        F: FnOnce(GhcbRequestExecutor),
     {
         interrupts::disable();
 
