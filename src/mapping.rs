@@ -4,12 +4,14 @@ use x86_64::VirtAddr;
 use x86_64::structures::paging::{PageSize, PageTableFlags, PhysFrame, Size4KiB};
 
 pub mod mapping_utils {
-    use x86_64::structures::paging::{PhysFrame, Size4KiB};
+    use x86_64::structures::paging::{PhysFrame, Size2MiB, Size4KiB};
     use x86_64::VirtAddr;
     use crate::instructions::pvalidate::pvalidate;
     use crate::msr::GhcbMsr;
     use crate::msr::page_state_change::{PageStateChangeRequest, PageStateOperation};
-    use crate::protocols::change_page_state::PageStateChangePageSize;
+    use crate::protocols::change_page_state::{ChangePageStateRequest, PageStateChangeEntry, PageStateChangeOperation, PageStateChangePageSize};
+    use crate::protocols::GhcbProtocolRequest;
+    use crate::structures::ChannelManager;
 
     /// Makes a frame shared with the hypervisor.
     ///
@@ -59,6 +61,36 @@ pub mod mapping_utils {
 
         // Grant validation for page
         pvalidate(PageStateChangePageSize::PageSize4KB, true, virt_addr);
+    }
+
+    /// Makes a frame shared with the hypervisor.
+    ///
+    /// # Safety
+    ///
+    /// virt_addr must map to the provided frame
+    pub unsafe fn make_shared_large<C: ChannelManager>(frame: PhysFrame<Size2MiB>, virt_addr: VirtAddr) {
+        // Rescind RMP validation for page
+        pvalidate(PageStateChangePageSize::PageSize2MB, false, virt_addr);
+
+        // Tell the hypervisor to make the frame shared
+        ChangePageStateRequest::new(&[
+            PageStateChangeEntry::new_for_frame(frame, PageStateChangeOperation::PageAssignShared)
+        ]).execute::<C>().expect("failed to share page with hypervisor");
+    }
+
+    /// Makes a frame non shared with the hypervisor.
+    ///
+    /// # Safety
+    ///
+    /// virt_addr must map to the provided frame
+    pub unsafe fn make_private_large<C: ChannelManager>(frame: PhysFrame<Size4KiB>, virt_addr: VirtAddr) {
+        // Tell the hypervisor to make the frame private
+        ChangePageStateRequest::new(&[
+            PageStateChangeEntry::new_for_frame(frame, PageStateChangeOperation::PageAssignPrivate)
+        ]).execute::<C>().expect("failed to unshare page with hypervisor");
+
+        // Grant validation for page
+        pvalidate(PageStateChangePageSize::PageSize2MB, true, virt_addr);
     }
 }
 
