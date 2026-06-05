@@ -31,13 +31,13 @@ impl<'a, C: ChannelManager, T: Translate> MmioHandler<'a, C, T> {
 }
 
 macro_rules! util_asm_test {
-    ($typ:ty, $rc:tt, $imm:expr, $rv:expr, $out:expr) => {{
+    ($typ:ty, $test:expr, $rc:tt, $imm:expr, $rv:expr, $out:expr) => {{
         let sz = size_of::<$typ>();
         let temp = <$typ>::from_le_bytes(($rv[0..sz]).try_into().unwrap());
         let imm = <$typ>::from_le_bytes(($imm[0..sz]).try_into().unwrap());
         unsafe { asm!(
             "pushfq",
-            "test {}, {}",
+            $test,
             "pushfq",
             "pop {}",
             "popfq",
@@ -50,13 +50,13 @@ macro_rules! util_asm_test {
 }
 
 macro_rules! util_asm_cmp_imm8 {
-    ($typ:ty, $imm8:expr, $rv:expr, $out:expr) => {{
+    ($typ:ty, $cmp: expr, $imm8:expr, $rv:expr, $out:expr) => {{
         let sz = size_of::<$typ>();
         let rv = <$typ>::from_le_bytes(($rv[0..sz]).try_into().unwrap());
         let imm = $imm8 as $typ; // Sign extend immediate value
         unsafe { asm!(
             "pushfq",
-            "cmp {}, {}",
+            $cmp,
             "pushfq",
             "pop {}",
             "popfq",
@@ -213,10 +213,10 @@ impl<'a, C: ChannelManager, T: Translate> GhcbVcHandler for MmioHandler<'a, C, T
                 let mut flags = frame.exception.cpu_flags.bits();
                 // Delegate the computation to assembly to make sure we do it correctly
                 match size {
-                    1 => util_asm_test!(i8, reg_byte, &immediate, &temp, flags),
-                    2 => util_asm_test!(i16, reg, &immediate, &temp, flags),
-                    4 => util_asm_test!(i32, reg, &immediate, &temp, flags),
-                    8 => util_asm_test!(i64, reg, &immediate, &temp, flags),
+                    1 => util_asm_test!(i8, "test {}, {}", reg_byte, &immediate, &temp, flags),
+                    2 => util_asm_test!(i16, "test {:x}, {:x}", reg, &immediate, &temp, flags),
+                    4 => util_asm_test!(i32, "test {:e}, {:e}", reg, &immediate, &temp, flags),
+                    8 => util_asm_test!(i64, "test {}, {}", reg, &immediate, &temp, flags),
                     _ => unreachable!(),
                 }
                 frame.exception.cpu_flags = RFlags::from_bits_retain(flags);
@@ -235,9 +235,9 @@ impl<'a, C: ChannelManager, T: Translate> GhcbVcHandler for MmioHandler<'a, C, T
                 let mut flags = frame.exception.cpu_flags.bits();
                 // Delegate the computation to assembly to make sure we do it correctly
                 match size {
-                    2 => util_asm_cmp_imm8!(i16, immediate, &temp, flags),
-                    4 => util_asm_cmp_imm8!(i32, immediate, &temp, flags),
-                    8 => util_asm_cmp_imm8!(i64, immediate, &temp, flags),
+                    2 => util_asm_cmp_imm8!(i16, "cmp {:x},{:x}", immediate, &temp, flags),
+                    4 => util_asm_cmp_imm8!(i32, "cmp {:e},{:e}", immediate, &temp, flags),
+                    8 => util_asm_cmp_imm8!(i64, "cmp {},{}", immediate, &temp, flags),
                     _ => unreachable!(),
                 }
                 frame.exception.cpu_flags = RFlags::from_bits_retain(flags);
