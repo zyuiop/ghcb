@@ -4,6 +4,14 @@ cargo-features = ["profile-rustflags"]
 name = "ghcb"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
+authors = ["Louis Vialar"]
+keywords = ["amd-sev", "cvm", "tee"]
+categories = ["hardware-support"]
+repository = "https://github.com/zyuiop/ghcb"
+exclude = ["/target/*", ".gitignore"]
+description = "Rust implementation for the AMD SEV ABIs and GHCB (Guest Hypervisor Communication Block)"
+readme = "README.md"
 
 [dependencies]
 x86_64 = { version = "0.15.4", features = ["memory_encryption", "abi_x86_interrupt"] }
