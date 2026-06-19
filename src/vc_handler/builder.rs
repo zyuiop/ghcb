@@ -1,15 +1,15 @@
 #[macro_export]
 macro_rules! make_vc_handler {
-    ($channel_manager:ty, $target_name:ident; $($exit_code:pat => $handler:expr),*) => {
-        $crate::make_vc_handler!($channel_manager, $target_name; $($exit_code => $handler),*; pre_handling (_a, _b) {}; post_handling (_a, _b) {});
+    ($target_name:ident; $($exit_code:pat => $handler:expr),*) => {
+        $crate::make_vc_handler!($target_name; $($exit_code => $handler),*; pre_handling (_a, _b) {}; post_handling (_a, _b) {});
     };
-    ($channel_manager:ty, $target_name:ident; $($exit_code:pat => $handler:expr),*; pre_handling ($pre_handling_stack: ident, $pre_handling_exit_code: ident) $pre_handling:block) => {
-        $crate::make_vc_handler!($channel_manager, $target_name; $($exit_code => $handler),*; pre_handling ($pre_handling_stack, $pre_handling_exit_code) $pre_handling; post_handling (_a, _b) {});
+    ($target_name:ident; $($exit_code:pat => $handler:expr),*; pre_handling ($pre_handling_stack: ident, $pre_handling_exit_code: ident) $pre_handling:block) => {
+        $crate::make_vc_handler!($target_name; $($exit_code => $handler),*; pre_handling ($pre_handling_stack, $pre_handling_exit_code) $pre_handling; post_handling (_a, _b) {});
     };
-    ($channel_manager:ty, $target_name:ident; $($exit_code:pat => $handler:expr),*; post_handling ($post_handling_stack: ident, $post_handling_exit_code: ident) $post_handling:block) => {
-        $crate::make_vc_handler!($channel_manager, $target_name; $($exit_code => $handler),*; pre_handling (_a, _b) {}; post_handling ($post_handling_stack, $post_handling_exit_code) $post_handling);
+    ($target_name:ident; $($exit_code:pat => $handler:expr),*; post_handling ($post_handling_stack: ident, $post_handling_exit_code: ident) $post_handling:block) => {
+        $crate::make_vc_handler!($target_name; $($exit_code => $handler),*; pre_handling (_a, _b) {}; post_handling ($post_handling_stack, $post_handling_exit_code) $post_handling);
     };
-    ($channel_manager:ty, $target_name:ident; $($exit_code:pat => $handler:expr),*; pre_handling ($pre_handling_stack: ident, $pre_handling_exit_code: ident) $pre_handling:block; post_handling ($post_handling_stack: ident, $post_handling_exit_code: ident) $post_handling:block) => {
+    ($target_name:ident; $($exit_code:pat => $handler:expr),*; pre_handling ($pre_handling_stack: ident, $pre_handling_exit_code: ident) $pre_handling:block; post_handling ($post_handling_stack: ident, $post_handling_exit_code: ident) $post_handling:block) => {
         use $crate::vc_handler::VcHandler as _;
 
         #[unsafe(naked)]
