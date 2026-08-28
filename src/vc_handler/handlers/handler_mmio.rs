@@ -164,6 +164,27 @@ impl<'a, C: ChannelManager, T: Translate> GhcbVcHandler for MmioHandler<'a, C, T
                     MmioWrite::new(immediate, self.map_address(address)).execute_request(ghcb);
                 }
             }
+            KnownOpcode::AndRegRm => {
+                // AND operation: DEST = DEST AND SRV
+                // We just need to read r/m16 and compute the and operation
+                let (register, address) = unsafe { instruction_data.parse_modrm_data(frame) };
+                let mut temp = [0u8; 8];
+
+                unsafe {
+                    MmioRead::new(
+                        self.map_address(address),
+                        &mut temp[0..size]
+                    ).execute_request(ghcb);
+                }
+
+                let mut src_target = register.get_register(frame);
+                let temp = u64::from_le_bytes(temp);
+                unsafe {
+                    asm!("and {}, {}", inout(reg) src_target, in(reg) temp);
+                };
+
+                *register.get_register_mut(frame) = src_target;
+            }
             KnownOpcode::OrRmImmByte | KnownOpcode::OrRmImm => {
                 // OR operation: we will need both a read and a write... this looks a bit inefficient :(
                 let (_, address) = unsafe { instruction_data.parse_modrm_data(frame) };

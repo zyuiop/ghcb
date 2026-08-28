@@ -91,6 +91,9 @@ pub mod opcode {
         /// Stores the bitwise OR with the immediate value in ModRM.rm
         OrRmImm = 0x81,
 
+        /// AND r16, r/m16
+        AndRegRm = 0x23,
+
         /// TEST r/m8, imm8
         ///
         /// Tests the immediate value against ModRM.rm, byte sized.
