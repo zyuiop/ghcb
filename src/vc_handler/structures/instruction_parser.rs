@@ -48,6 +48,11 @@ pub enum OperandSize {
 }
 
 impl InstructionData {
+    #[cfg(test)]
+    pub fn new_from_instr(instr: &[u8]) -> Self {
+        Self::new(instr.as_ptr().cast())
+    }
+
     pub fn new(instr_ptr: *const ()) -> Self {
         let mut res = Self {
             base_ptr: instr_ptr as *const u8,
@@ -347,7 +352,7 @@ impl ModRmInfo {
                 (bytes[3] as u64) << 24
                     | (bytes[2] as u64) << 16
                     | (bytes[1] as u64) << 8
-                    | (bytes[1] as u64)
+                    | (bytes[0] as u64)
             } else {
                 panic!("invalid displacement bytes");
             }
@@ -549,3 +554,77 @@ const MODES: [ModRmMode; 4] = [
     ModRmMode::Memory32BitsDisplacement, // 10
     ModRmMode::Register,                 // 11
 ];
+
+#[cfg(test)]
+mod tests {
+    use x86_64::registers::rflags::RFlags;
+    use x86_64::structures::gdt::SegmentSelector;
+    use x86_64::structures::idt::InterruptStackFrameValue;
+    use x86_64::VirtAddr;
+    use crate::vc_handler::structures::instruction_parser::InstructionData;
+    use crate::vc_handler::structures::opcodes::opcode::KnownOpcode;
+    use crate::vc_handler::structures::opcodes::Register;
+    use crate::vc_handler::structures::stack_frame::{SavedRegisters, VCInterruptStackFrame};
+
+    fn default_stack_frame() -> VCInterruptStackFrame {
+        VCInterruptStackFrame {
+            registers: SavedRegisters {
+                rax: 0x1000,
+                rbx: 0x2000,
+                rcx: 0x3000,
+                rdx: 0x4000,
+                rsi: 0x5000,
+                rdi: 0x6000,
+                rbp: 0x7000,
+                r8: 0x8000,
+                r9: 0x9000,
+                r10: 0xA000,
+                r11: 0xB000,
+                r12: 0xC000,
+                r13: 0xD000,
+                r14: 0xE000,
+                r15: 0xF000,
+            },
+            error_code: 0,
+            exception: InterruptStackFrameValue::new(
+                VirtAddr::new(0x1000_0000),
+                SegmentSelector(1),
+                RFlags::all(),
+                VirtAddr::new(0xA000_0000),
+                SegmentSelector(2)
+            )
+        }
+    }
+
+    #[test]
+    fn parse_mov_1() {
+        // Reference: https://defuse.ca/online-x86-assembler.htm#disassembly2
+        let sf = default_stack_frame();
+        let mut mov1 = InstructionData::new_from_instr(&[0x41u8, 0x89, 0x87, 0x84, 0x00, 0x00, 0x00]);
+
+        assert_eq!(mov1.operation(), KnownOpcode::MovRmReg);
+        let (reg, addr) = unsafe {
+            mov1.parse_modrm_data(&sf)
+        };
+
+        assert_eq!(reg.0, Register::Rax);
+        assert_eq!(reg.1, false);
+        assert_eq!(addr.as_u64(), sf.registers.r15 + 0x84);
+    }
+
+    #[test]
+    fn parse_mov_2() {
+        // Reference: https://defuse.ca/online-x86-assembler.htm#disassembly2
+        let sf = default_stack_frame();
+        let mut mov1 = InstructionData::new_from_instr(&[0x45, 0x89, 0x77, 0x30]);
+
+        assert_eq!(mov1.operation(), KnownOpcode::MovRmReg);
+        let (reg, addr) = unsafe {
+            mov1.parse_modrm_data(&sf)
+        };
+
+        assert_eq!(reg.0, Register::Rsi);
+        assert_eq!(reg.1, true);
+        assert_eq!(addr.as_u64(), sf.registers.r15 + 0x30);
+    }
+}

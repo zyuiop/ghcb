@@ -281,6 +281,7 @@ impl Register {
 }
 
 /// Represents a register which may have been "increased" via a x64 register extension command
+#[derive(Debug)]
 pub struct ExtendedRegister(pub Register, pub bool);
 
 impl ExtendedRegister {

@@ -1,6 +1,9 @@
 #![no_std]
 #![feature(cfg_select)]
 
+#[cfg(test)]
+extern crate std;
+
 pub mod instructions;
 pub mod msr;
 pub mod protocols;
