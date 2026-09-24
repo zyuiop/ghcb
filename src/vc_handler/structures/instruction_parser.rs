@@ -42,8 +42,11 @@ pub enum InstructionRepetitionMode {
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum OperandSize {
+    /// Word
     Size16Bits,
+    /// Double Word
     Size32Bits,
+    /// Quad Word
     Size64Bits,
 }
 
@@ -561,7 +564,7 @@ mod tests {
     use x86_64::structures::gdt::SegmentSelector;
     use x86_64::structures::idt::InterruptStackFrameValue;
     use x86_64::VirtAddr;
-    use crate::vc_handler::structures::instruction_parser::InstructionData;
+    use crate::vc_handler::structures::instruction_parser::{InstructionData, OperandSize};
     use crate::vc_handler::structures::opcodes::opcode::KnownOpcode;
     use crate::vc_handler::structures::opcodes::Register;
     use crate::vc_handler::structures::stack_frame::{SavedRegisters, VCInterruptStackFrame};
@@ -626,5 +629,22 @@ mod tests {
         assert_eq!(reg.0, Register::Rsi);
         assert_eq!(reg.1, true);
         assert_eq!(addr.as_u64(), sf.registers.r15 + 0x30);
+    }
+
+    #[test]
+    fn parse_mov_read_1() {
+        // Reference: https://defuse.ca/online-x86-assembler.htm#disassembly2
+        let sf = default_stack_frame();
+        let mut mov1 = InstructionData::new_from_instr(&[0x8b, 0x10]);
+
+        assert_eq!(mov1.operation(), KnownOpcode::MovRegRm);
+        let (reg, addr) = unsafe {
+            mov1.parse_modrm_data(&sf)
+        };
+
+        assert_eq!(reg.0, Register::Rdx);
+        assert_eq!(reg.1, false /* Not extended */);
+        assert_eq!(addr.as_u64(), sf.registers.rax);
+        assert_eq!(mov1.operand_size, OperandSize::Size32Bits);
     }
 }

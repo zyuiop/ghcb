@@ -305,7 +305,7 @@ impl ExtendedRegister {
         assert!(size < size_of::<u64>());
 
         unsafe {
-            core::slice::from_raw_parts_mut(self.0.as_mut_ptr(frame, self.1), size_of::<u64>())
+            core::slice::from_raw_parts_mut(self.0.as_mut_ptr(frame, self.1), size)
         }
     }
 
