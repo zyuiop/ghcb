@@ -3,6 +3,7 @@ use static_assertions::const_assert_eq;
 
 const MAX_CPUID_FUNCTIONS: usize = 64;
 
+#[derive(Debug)]
 pub struct CPUIDPage {
     count: u32,
     _padding: u32,
