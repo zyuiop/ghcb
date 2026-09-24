@@ -82,21 +82,6 @@ impl<'a, C: ChannelManager, T: Translate> MmioHandler<'a, C, T> {
             }
         }
     }
-
-    /// Reads the immediate of an instruction with operand size `size`.
-    ///
-    /// Immediates are at most 4 bytes; for 64-bit operands they are sign-extended.
-    #[inline(always)]
-    unsafe fn read_immediate(instruction_data: &mut InstructionData, size: usize) -> [u8; 8] {
-        let immediate = unsafe { instruction_data.read_immediate(size.min(4)) };
-        let mut extended = if immediate[immediate.len() - 1] >> 7 == 1 {
-            [0xff; 8]
-        } else {
-            [0; 8]
-        };
-        extended[..immediate.len()].copy_from_slice(immediate);
-        extended
-    }
 }
 
 impl<'a, C: ChannelManager, T: Translate> GhcbVcHandler for MmioHandler<'a, C, T> {
@@ -123,6 +108,9 @@ impl<'a, C: ChannelManager, T: Translate> GhcbVcHandler for MmioHandler<'a, C, T
             // 8 bit opcodes are always even, non-8bit opcodes are never even (see below)
             size = 1;
         }
+
+        let mut immediate = [0u8; 8];
+        let immediate = &mut immediate[..size];
 
         match opcode {
             KnownOpcode::MovRmRegByte | KnownOpcode::MovRmReg => {
@@ -178,11 +166,10 @@ impl<'a, C: ChannelManager, T: Translate> GhcbVcHandler for MmioHandler<'a, C, T
             KnownOpcode::MovRmImmByte | KnownOpcode::MovRmImm => {
                 // MOV imm to reg/mem (write)
                 let (_, address) = unsafe { instruction_data.parse_modrm_data(frame) };
-                let immediate = unsafe { Self::read_immediate(instruction_data, size) };
+                unsafe { instruction_data.read_immediate_sign_extended(immediate) };
 
                 unsafe {
-                    MmioWrite::new(&immediate[0..size], self.map_address(address))
-                        .execute_request(ghcb);
+                    MmioWrite::new(immediate, self.map_address(address)).execute_request(ghcb);
                 }
             }
             KnownOpcode::AndRegRm => {
@@ -192,8 +179,10 @@ impl<'a, C: ChannelManager, T: Translate> GhcbVcHandler for MmioHandler<'a, C, T
                 let mut temp = [0u8; 8];
 
                 unsafe {
-                    MmioRead::new(self.map_address(address), &mut temp[0..size])
-                        .execute_request(ghcb);
+                    MmioRead::new(
+                        self.map_address(address),
+                        &mut temp[0..size]
+                    ).execute_request(ghcb);
                 }
 
                 let mut src_target = register.get_register(frame);
@@ -209,7 +198,7 @@ impl<'a, C: ChannelManager, T: Translate> GhcbVcHandler for MmioHandler<'a, C, T
                 let (_, address) = unsafe { instruction_data.parse_modrm_data(frame) };
                 let address = self.map_address(address);
 
-                let immediate = unsafe { Self::read_immediate(instruction_data, size) };
+                unsafe { instruction_data.read_immediate_sign_extended(immediate) };
                 let mut temp = [0u8; 8];
 
                 unsafe {
@@ -242,7 +231,7 @@ impl<'a, C: ChannelManager, T: Translate> GhcbVcHandler for MmioHandler<'a, C, T
             KnownOpcode::TestRmByte | KnownOpcode::TestRm => {
                 // TEST operation: we read the value and compte the results of the TEST instruction
                 let (_, address) = unsafe { instruction_data.parse_modrm_data(frame) };
-                let immediate = unsafe { Self::read_immediate(instruction_data, size) };
+                unsafe { instruction_data.read_immediate_sign_extended(immediate) };
 
                 let mut temp = [0u8; 8];
                 unsafe {
