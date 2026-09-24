@@ -5,6 +5,7 @@ use super::opcodes::{ExtendedRegister, Register, opcode};
 use crate::vc_handler::structures::stack_frame::VCInterruptStackFrame;
 use core::mem::MaybeUninit;
 use core::slice;
+use core::cmp::min;
 use x86_64::VirtAddr;
 
 const MAX_INSTRUCTION_LENGTH: usize = 15;
@@ -234,8 +235,36 @@ impl InstructionData {
     #[inline(always)]
     pub unsafe fn read_immediate(&mut self, len: usize) -> &[u8] {
         assert_eq!(self.immediate_read, false);
+
+        // Per APM 3.2.3.3, only MOV reg, imm16/32 supports 8 bytes operands
+        // In all other cases, it's a sign-extended 4 byte immediate
+        // MOV reg, imm16/32 should *never* reach us, so we can safely ignore it
+        assert!(len <= 4);
+
         self.immediate_read = true;
         self.read_bytes(len)
+    }
+
+    #[inline(always)]
+    pub unsafe fn read_immediate_sign_extended(&mut self, output: &mut [u8]) {
+        assert_eq!(self.immediate_read, false);
+
+        // See comment in read_immediate: len is never bigger than 4
+        let len = min(output.len(), 4);
+        let immediate = unsafe {
+            self.read_immediate(len)
+        };
+
+        output[..len].copy_from_slice(immediate);
+
+        // Sign extend
+        if output.len() > len {
+            if output[len - 1] >> 7 == 1 {
+                output[len..].fill(0xff);
+            } else {
+                output[len..].fill(0x00);
+            }
+        }
     }
 
     pub fn operation(&mut self) -> KnownOpcode {
