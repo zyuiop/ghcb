@@ -37,7 +37,7 @@ struct OSSecretsArea {
 }
 
 #[derive(Debug)]
-#[repr(C)]
+#[repr(C, align(0x1000))]
 pub struct SNPSecretsPage {
     version: u32,
     imi_en: u32,
