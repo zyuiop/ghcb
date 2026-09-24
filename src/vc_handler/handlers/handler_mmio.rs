@@ -130,6 +130,11 @@ impl<'a, C: ChannelManager, T: Translate> GhcbVcHandler for MmioHandler<'a, C, T
                     )
                     .execute_request(ghcb)
                 }
+
+                // 32-bit destinations are zero-extended to 64 bits
+                if size == 4 {
+                    *register.get_register_mut(frame) &= 0xffff_ffff;
+                }
             }
             KnownOpcode::MovzRegRmByte | KnownOpcode::MovzRegRm => {
                 // MOVZX regx, reg/memX

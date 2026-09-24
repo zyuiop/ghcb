@@ -292,7 +292,7 @@ impl ExtendedRegister {
 
     /// Selects this register as a read-only byte slice, of requested size
     pub fn as_slice<'a>(&self, frame: &'a VCInterruptStackFrame, size: usize) -> &'a [u8] {
-        assert!(size < size_of::<u64>());
+        assert!(size <= size_of::<u64>());
 
         unsafe { core::slice::from_raw_parts(self.0.as_ptr(frame, self.1), size) }
     }
@@ -302,11 +302,9 @@ impl ExtendedRegister {
         frame: &'a mut VCInterruptStackFrame,
         size: usize,
     ) -> &'a mut [u8] {
-        assert!(size < size_of::<u64>());
+        assert!(size <= size_of::<u64>());
 
-        unsafe {
-            core::slice::from_raw_parts_mut(self.0.as_mut_ptr(frame, self.1), size)
-        }
+        unsafe { core::slice::from_raw_parts_mut(self.0.as_mut_ptr(frame, self.1), size) }
     }
 
     pub fn get_register_mut<'a>(&self, frame: &'a mut VCInterruptStackFrame) -> &'a mut u64 {
