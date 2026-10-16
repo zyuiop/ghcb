@@ -59,9 +59,10 @@ impl<'a, C: ChannelManager, S: CpuIdPageAccessor> GhcbVcHandler for CpuIdHandler
             0
         };
 
+        let leaf = (frame.registers.rax & 0xffff_ffff) as u32;
         let found = self.cpuid.with_cpuid_page(|cpuid| {
             match cpuid.get_cpuid(
-                (frame.registers.rax & 0xffff_ffff) as u32,
+                leaf,
                 (frame.registers.rcx & 0xffff_ffff) as u32,
                 xcr0,
             ) {
@@ -71,6 +72,16 @@ impl<'a, C: ChannelManager, S: CpuIdPageAccessor> GhcbVcHandler for CpuIdHandler
                     frame.registers.rbx = existing.ebx as u64;
                     frame.registers.rcx = existing.ecx as u64;
                     frame.registers.rdx = existing.edx as u64;
+
+                    // The page holds a static snapshot, OSXSAVE mirrors the current CR4
+                    if leaf == 0x1 {
+                        const OSXSAVE: u64 = 1 << 27;
+                        if Cr4::read().contains(Cr4Flags::OSXSAVE) {
+                            frame.registers.rcx |= OSXSAVE;
+                        } else {
+                            frame.registers.rcx &= !OSXSAVE;
+                        }
+                    }
 
                     true
                 }
