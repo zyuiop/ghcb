@@ -4,6 +4,27 @@ use static_assertions::const_assert_eq;
 
 const MAX_CPUID_FUNCTIONS: usize = 64;
 
+/// Leaves whose output depends on the subleaf in ECX (Linux' `cpuid_function_is_indexed`).
+const fn is_indexed(leaf: u32) -> bool {
+    matches!(
+        leaf,
+        0x4 | 0x7
+            | 0xb
+            | 0xd
+            | 0xf
+            | 0x10
+            | 0x12
+            | 0x14
+            | 0x17
+            | 0x18
+            | 0x1d
+            | 0x1e
+            | 0x1f
+            | 0x24
+            | 0x8000_001d
+    )
+}
+
 #[derive(Debug)]
 #[repr(C, align(0x1000))]
 pub struct CPUIDPage {
@@ -39,7 +60,7 @@ impl CPUIDPage {
 
         let count = min(self.count as usize, MAX_CPUID_FUNCTIONS);
         for page in self.cpuid.iter().take(count) {
-            if page.eax_in == eax && page.ecx_in == ecx {
+            if page.eax_in == eax && (!is_indexed(eax) || page.ecx_in == ecx) {
                 if eax == 0xD {
                     // Check XCR0
                     if page.xcr0_in != xcr0 {
